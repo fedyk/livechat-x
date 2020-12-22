@@ -12,6 +12,14 @@ html {
 }
 
 body {
+  --main-text-color: #212529;
+  --second-text-color: #9e9e9e;
+  --main-bg-color: #fff;
+  --content-bg-color: #f5f5f5;
+  --my-message-bg-color: rgb(75,182,120);
+  --main-border-color: #e9eaec;
+  --active-bg-color: #f4f4f5;
+
   margin: 0;
   padding: 0;
   overflow: hidden;
@@ -21,17 +29,28 @@ body {
   font-size: 1rem;
   font-weight: 400;
   line-height: 1.5;
-  color: #212529;
   text-align: left;
-  background-color: #fff;
+  color: var(--main-text-color);
+  background-color: var(--main-bg-color);
+  
+}
+
+body.dark-theme {
+  --main-text-color: #fff;
+  --second-text-color: #989898;
+  --main-bg-color: #121212;
+  --content-bg-color: #1e1e1e;
+  --my-message-bg-color: rgb(75 182 120 / 20%);
+  --main-border-color: #232323;
+  --active-bg-color: #2e2e2e;
 }
 
 .text-primary {
-  color: #212121;
+  color: var(--main-text-color);
 }
 
 .text-muted {
-  color: #9e9e9e;
+  color: var(--second-text-color);
 }
 
 .main-screen {
@@ -47,8 +66,13 @@ body {
   position: relative;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid #e9eaec;
+  border-right: 1px solid var(--main-border-color);
   width: 340px;
+}
+
+.sidebar-header {
+  display: flex;
+  flex-direction: row;
 }
 
 .main {
@@ -59,14 +83,16 @@ body {
 
 .search {
   position: relative;
-  padding: 10px 14px;
+  padding: 10px 14px 10px 0;
+  flex-grow: 1;
 }
 
 .search-label {
   position: absolute;
-  top: 18px;
-  left: 25px;
+  top: 19px;
+  left: 12px;
   z-index: 1;
+  color: var(--second-text-color);
 }
 
 .search-input {
@@ -77,13 +103,40 @@ body {
   font-size: inherit;
   border-radius: 16px;
   border: none;
-  background: #f4f4f5;
+  color: var(--main-text-color);
+  background-color: var(--content-bg-color);
+}
+
+.search-input:focus {
+  outline: none;
+  background-color: var(--active-bg-color);
+}
+
+.dark-theme-toggler {
+  position: relative;
+  border: none;
+  background-color: transparent;
+  width: 60px;
+  cursor: pointer;
+  color: var(--second-text-color);
+  transition: color .1s linear, background-color .1s linear;
+}
+
+.dark-theme-toggler:hover {
+  color: var(--main-text-color);
+  background-color: var(--active-bg-color);
+}
+
+.dark-theme-toggler:focus {
+  outline: none;
+  color: var(--main-text-color);
+  background-color: var(--active-bg-color);
 }
 
 .tabs {
   white-space: nowrap;
   overflow-y: scroll;
-  border-bottom: 1px solid #e9eaec;
+  border-bottom: 1px solid var(--main-border-color);
 }
 
 .tab {
@@ -110,7 +163,7 @@ body {
 }
 
 .list-chat-item:hover {
-  background-color: #f4f4f5;
+  background-color: var(--active-bg-color);
 }
 
 .chat-list-item-avatar {
@@ -165,13 +218,13 @@ body {
   flex-direction: row;
   align-items: center;
   padding: 0 14px;
-  border-bottom: 1px solid #e9eaec;
+  border-bottom: 1px solid var(--main-border-color);
 }
 
 .chat-body {
   flex: 1 1 auto;
-  background: #f5f5f5;
   overflow-y: auto;
+  background-color: var(--content-bg-color);
 }
 
 .chat-header-avatar {
@@ -179,32 +232,50 @@ body {
 }
 
 .chat-composer {
-  display: flex;
-  flex-direction: row;
-  padding: 0 0 1px 0;
-  border-top: 1px solid #e9eaec;
+  position: relative;
+  border-top: 1px solid var(--main-border-color);
 }
 
 input.chat-composer-input {
-  flex: 1;
+  display: block;
+  width: 100%;
+  min-height: 48px;
   padding: 1px 14px 0;
   border: none;
   background: none;
   font-size: 1rem;
   line-height: 0;
+  color: var(--main-text-color);
+  transition: background-color 0.1s linear;
 }
 
 input.chat-composer-input:focus {
   border: none;
   outline: none;
+  background-color: var(--active-bg-color);
 }
 
 button.chat-composer-send {
-  display: flex;
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
   border: none;
   background: none;
   padding: 14px;
   line-height: 1.5;
+  color: var(--second-text-color);
+  transition: color .1s linear;
+  cursor: pointer;
+}
+
+button.chat-composer-send:hover {
+  color: var(--main-text-color);
+}
+
+button.chat-composer-send:focus {
+  color: var(--main-text-color)
+  outline: none;
 }
 
 .messages {
@@ -236,18 +307,13 @@ button.chat-composer-send {
   position: relative;
   padding: 9px 14px 10px;
   max-width: 60%;
-  background-color: #fff;
+  background-color: var(--main-bg-color);
   border-radius: 6px;
   display: inline-block;
 }
 
 .message-right .message-bubble {
-  background-color: #4bb678;
-  color: #fff;
-}
-
-.message-text {
-  background-color: #ff0 !important;
+  background-color: var(--my-message-bg-color);
 }
 
 .message-file {
@@ -450,4 +516,91 @@ button.chat-composer-send {
 .network-status-loader {
   margin-right: 8px;
   align-self: center;
+}
+
+.details-header {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  min-height: 58px;
+  border-bottom: 1px solid var(--main-border-color);
+}
+
+.details-title {
+  position: relative;
+}
+
+.details-close {
+  position: relative;
+  height: 58px;
+  width: 60px;
+  margin-right: -14px;
+  line-height: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #9e9e9e;
+}
+
+.details-close:hover {
+  color: #212121;
+}
+
+.details-body {
+  position: relative;
+  overflow: auto;
+}
+
+
+.details-row {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  padding: 0 14px;
+  min-height: 47px;
+  align-items: center;
+  border-bottom: 1px solid var(--main-border-color);
+}
+.details-avatar {
+  position: relative;
+  margin-right: 10px;
+  margin-top: 6px;
+  margin-bottom: 6px;
+}
+.details-icon {
+  position: relative;
+  line-height: 0;
+  margin: 0 10px 0 0;
+}
+
+.details-list {padding: 0;margin: 6px 0 6px;}
+
+.details-list dt {
+    color: #757575;
+    font-size: 0.85rem;
+}
+.details-list dd {
+    padding: 0;
+    margin: 0 0 6px;
+}
+
+.details-action {
+  position: relative;
+  display: block;
+  color: #616161;
+  text-decoration: none;
+  min-height: 46px;
+  line-height: 53px;
+  padding: 0 14px;
+}
+
+.details-action:hover {
+  background-color: #f4f4f5;
+}
+
+.details-action-destroy {
+  color: #f00;
 }

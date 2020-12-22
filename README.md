@@ -4,6 +4,7 @@
  - [x] sneak peel + typing indicator on list
  - [x] Loader for network
  - [x] Scroll on chats list
- - [ ] Customer details
- - [ ] Dark styles
+ - [x] Customer details
+ - [x] Dark styles
  - [ ] Sticky dates on chat feed
+ - [ ] Add grid with possibility to hide chat-feed and details

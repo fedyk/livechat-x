@@ -10,21 +10,32 @@
   <title>LiveChat Lite</title>
 </head>
 
-<body>
+<body class="dark-theme">
   <div class="main-screen">
     <div class="sidebar">
-      <div class="search">
-        <label for="search" class="search-label">
-          <svg width="1.2em" height="1.2em" viewBox="0 0 16 16" class="bi bi-search" fill="currentColor"
-            xmlns="http://www.w3.org/2000/svg">
-            <path fill-rule="evenodd"
-              d="M10.442 10.442a1 1 0 0 1 1.415 0l3.85 3.85a1 1 0 0 1-1.414 1.415l-3.85-3.85a1 1 0 0 1 0-1.415z" />
-            <path fill-rule="evenodd"
-              d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11zM13 6.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0z" />
+      <div class="sidebar-header">
+
+        <button class="dark-theme-toggler" onclick="document.body.classList.toggle('dark-theme')">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-moon" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M14.53 10.53a7 7 0 0 1-9.058-9.058A7.003 7.003 0 0 0 8 15a7.002 7.002 0 0 0 6.53-4.47z"/>
           </svg>
-        </label>
-        <input id="search" class="search-input" type="search" name="query" placeholder="Search" />
+        </button>
+
+        <div class="search">
+          <label for="search" class="search-label">
+            <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-search" fill="currentColor"
+              xmlns="http://www.w3.org/2000/svg">
+              <path fill-rule="evenodd"
+                d="M10.442 10.442a1 1 0 0 1 1.415 0l3.85 3.85a1 1 0 0 1-1.414 1.415l-3.85-3.85a1 1 0 0 1 0-1.415z" />
+              <path fill-rule="evenodd"
+                d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11zM13 6.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0z" />
+            </svg>
+          </label>
+          <input id="search" class="search-input" type="search" name="query" placeholder="Search" autocomplete="off"/>
+        </div>
+
       </div>
+      
 
       <div class="tabs">
         <div class="tab">
@@ -80,7 +91,7 @@
             </div>
           </div>
         </div><!-- /.chat -->
-        
+
         <div class="list-chat-item">
           <div class="chat-list-item-avatar">
             <div class="avatar">
@@ -126,6 +137,9 @@
 
         <div class="chat-body">
           <div class="messages">
+
+            <!-- Sticky dates -->
+            
 
             <!-- Sneak peek -->
             <div class="message">
@@ -450,6 +464,109 @@
         </div>
 
       </div><!-- /.chat -->
+    </div><!-- /.main -->
+
+    <div class="sidebar">
+      <div class="details-header">
+        <div class="details-title">Visitor Info</div>
+        <button class="details-close">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" class="bi bi-x"
+            viewBox="0 0 16 16">
+            <path fill-rule="evenodd"
+              d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z" />
+          </svg>
+        </button>
+      </div><!-- /.details-header -->
+
+      <div class="details-body">
+        <div class="details-row">
+          <div class="details-avatar">
+            <div class="avatar">
+              <img src="https://i.pravatar.cc/512?img=2" height="48px" width="48px" />
+            </div>
+          </div>
+          <div class="details-basic">
+            <div class="text-primary">John Wick</div>
+            <div class="text-muted">john@sec.email</div>
+          </div>
+        </div>
+
+        <div class="details-row">
+          <div class="details-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-geo-alt"
+              viewBox="0 0 16 16">
+              <path fill-rule="evenodd"
+                d="M12.166 8.94C12.696 7.867 13 6.862 13 6A5 5 0 0 0 3 6c0 .862.305 1.867.834 2.94.524 1.062 1.234 2.12 1.96 3.07A31.481 31.481 0 0 0 8 14.58l.208-.22a31.493 31.493 0 0 0 1.998-2.35c.726-.95 1.436-2.008 1.96-3.07zM8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10z" />
+              <path fill-rule="evenodd" d="M8 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 1a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+            </svg>
+          </div>
+          <div class="text-primary">Lviv, Ukraine</div>
+        </div>
+        <div class="details-row">
+          <div class="details-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-wifi"
+              viewBox="0 0 16 16">
+              <path
+                d="M15.385 6.115a.485.485 0 0 0-.048-.736A12.443 12.443 0 0 0 8 3 12.44 12.44 0 0 0 .663 5.379a.485.485 0 0 0-.048.736.518.518 0 0 0 .668.05A11.448 11.448 0 0 1 8 4c2.507 0 4.827.802 6.717 2.164.204.148.489.13.668-.049z" />
+              <path
+                d="M13.229 8.271c.216-.216.194-.578-.063-.745A9.456 9.456 0 0 0 8 6c-1.905 0-3.68.56-5.166 1.526a.48.48 0 0 0-.063.745.525.525 0 0 0 .652.065A8.46 8.46 0 0 1 8 7a8.46 8.46 0 0 1 4.577 1.336c.205.132.48.108.652-.065zm-2.183 2.183c.226-.226.185-.605-.1-.75A6.472 6.472 0 0 0 8 9c-1.06 0-2.062.254-2.946.704-.285.145-.326.524-.1.75l.015.015c.16.16.408.19.611.09A5.478 5.478 0 0 1 8 10c.868 0 1.69.201 2.42.56.203.1.45.07.611-.091l.015-.015zM9.06 12.44c.196-.196.198-.52-.04-.66A1.99 1.99 0 0 0 8 11.5a1.99 1.99 0 0 0-1.02.28c-.238.14-.236.464-.04.66l.706.706a.5.5 0 0 0 .708 0l.707-.707z" />
+            </svg>
+          </div>
+          <div class="text-primary">132.234.543.2</div>
+        </div>
+        <div class="details-row">
+          <dl class="details-list">
+            <dt>Referrer</dt>
+            <dd>http://www.google.com/</dd>
+
+            <dt>Browser</dt>
+            <dd>Chrome 47 on Windows 40</dd>
+
+            <dt>Total visits</dt>
+            <dd>12</dd>
+          </dl>
+        </div>
+        <div class="details-row">
+          <div>
+            <div class="regular-text">Session fields </div>
+
+            <dl class="details-list">
+              <dt>username</dt>
+              <dd>@gsefs</dd>
+
+              <dt>cart_value</dt>
+              <dd>450</dd>
+
+              <dt>order date</dt>
+              <dd>05/21/2019</dd>
+            </dl>
+          </div>
+        </div>
+        <div class="details-row">
+          <div class="">
+            <div class="regular-text">Last pages </div>
+
+            <dl class="details-list">
+              <dt>LiveChat sdsd</dt>
+              <dd>livechat.com/sdfsdf/sadfs</dd>
+
+              <dt>LiveChat - Tour</dt>
+              <dd>https://www.livechatinc.com/tour</dd>
+
+              <dt>LiveChat - Homepage</dt>
+              <dd>https://www.livechatinc.com/</dd>
+            </dl>
+          </div>
+        </div>
+        <div class="details-actions">
+          <a href="#" class="details-action">
+            Edit visitor
+          </a>
+          <a href="#" class="details-action details-action-destroy">
+            Ban visitor
+          </a>
+        </div>
+      </div>
     </div>
   </div>
 </body>
