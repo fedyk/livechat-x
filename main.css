@@ -53,32 +53,37 @@ body.dark-theme {
   color: var(--second-text-color);
 }
 
-.main-screen {
+.display-none {
+  display: none !important;
+}
+
+.grid {
   position: relative;
   display: flex;
   flex-direction: row;
   width: 100vw;
   height: 100vh;
-  /* background: #ff0; */
 }
 
-.sidebar {
+.grid-sidebar {
   position: relative;
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--main-border-color);
+  border-left: 1px solid var(--main-border-color);
   width: 340px;
 }
 
-.sidebar-header {
+.header {
   display: flex;
   flex-direction: row;
 }
 
-.main {
+.grid-main {
   position: relative;
+  display: flex;
   flex-grow: 1;
-  /* background: #f00; */
+  background-color: var(--content-bg-color);
 }
 
 .search {
@@ -206,10 +211,17 @@ body.dark-theme {
   font-size: 0.8rem;
 }
 
+.chat-suite {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  flex-grow: 1;
+}
+
 .chat {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex-grow: 1;
 }
 
 .chat-header {
@@ -219,12 +231,12 @@ body.dark-theme {
   align-items: center;
   padding: 0 14px;
   border-bottom: 1px solid var(--main-border-color);
+  background-color: var(--main-bg-color);
 }
 
 .chat-body {
   flex: 1 1 auto;
   overflow-y: auto;
-  background-color: var(--content-bg-color);
 }
 
 .chat-header-avatar {
@@ -234,6 +246,7 @@ body.dark-theme {
 .chat-composer {
   position: relative;
   border-top: 1px solid var(--main-border-color);
+  background-color: var(--main-bg-color);
 }
 
 input.chat-composer-input {
@@ -279,9 +292,8 @@ button.chat-composer-send:focus {
 }
 
 .messages {
+  position: relative;
   padding: 14px;
-  /* display: flex; */
-  /* flex-direction: column; */
 }
 
 .message {
@@ -346,7 +358,6 @@ button.chat-composer-send:focus {
 
 .message-file-title {
   position: relative;
-  /* color: #616161; */
   text-overflow: ellipsis;
   white-space: nowrap;
   overflow: hidden;
@@ -357,6 +368,14 @@ button.chat-composer-send:focus {
   font-size: 0.85rem;
   opacity: 0.6;
 }
+
+.message-date {
+  /* position: sticky; */
+  /* top: -1px; */
+  text-align: center;
+}
+
+.message-date span {display: inline-block;padding: 2px 7px;border-radius: 8px;background-color: var(--main-bg-color);font-size: .85rem;}
 
 /**
  * push space for message-meta
@@ -383,6 +402,7 @@ button.chat-composer-send:focus {
 .message-system {
   min-width: 80%;
   font-size: 0.85rem;
+  margin: 0 auto;
   text-align: center;
 }
 
@@ -511,11 +531,23 @@ button.chat-composer-send:focus {
 .network-status {
   display: flex;
   flex-direction: row;
+  background-color: var(--main-bg-color);
 }
 
 .network-status-loader {
   margin-right: 8px;
   align-self: center;
+}
+
+.details {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--main-border-color);
+  background-color: var(--main-bg-color);
+  flex-basis: 340px;
+  flex-grow: 0;
+  flex-shrink: 0;
 }
 
 .details-header {
@@ -525,7 +557,7 @@ button.chat-composer-send:focus {
   align-items: center;
   justify-content: space-between;
   padding: 0 14px;
-  min-height: 58px;
+  min-height: 54px;
   border-bottom: 1px solid var(--main-border-color);
 }
 
@@ -535,7 +567,7 @@ button.chat-composer-send:focus {
 
 .details-close {
   position: relative;
-  height: 58px;
+  height: 57px;
   width: 60px;
   margin-right: -14px;
   line-height: 0;
@@ -603,4 +635,9 @@ button.chat-composer-send:focus {
 
 .details-action-destroy {
   color: #f00;
+}
+
+.chat-no-selected {display: flex;flex-grow: 1;}
+.chat-no-selected-text {
+    flex-grow: 1;
 }

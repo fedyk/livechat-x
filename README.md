@@ -6,5 +6,6 @@
  - [x] Scroll on chats list
  - [x] Customer details
  - [x] Dark styles
- - [ ] Sticky dates on chat feed
+ - [x] Dates on chat feed
  - [ ] Add grid with possibility to hide chat-feed and details
+ 
