@@ -287,7 +287,7 @@ button.chat-composer-send:hover {
 }
 
 button.chat-composer-send:focus {
-  color: var(--main-text-color)
+  color: var(--main-text-color);
   outline: none;
 }
 
