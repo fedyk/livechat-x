@@ -6,8 +6,8 @@ export const AGENT_API_HOSTS: { [key: string]: string } = {
   fra: "api-fra.livechatinc.com",
 }
 
-export function getAccountsUrl(state: string = "") {
-  return `https://accounts.livechat.com/` +
+export function getAccountsUrl(path = "", state =  "") {
+  return `https://accounts.livechat.com/${path}` +
     `?response_type=token` +
     `&client_id=${encodeURIComponent(LIVECHAT_CLIENT_ID)}` +
     `&redirect_uri=${encodeURIComponent(LIVEHCAT_REDIRECT_URL)}` +

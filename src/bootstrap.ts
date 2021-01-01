@@ -1,11 +1,14 @@
 import { Credentials } from "./types"
 import { __DEV__, getAccountsUrl } from "./config.js"
-import { Auth } from "./services.js"
-import { API } from "./api.js"
-import { Store } from "./store.js"
+import { Auth, ChatRouter, Storage, WebAPI } from "./services.js"
+import { $API, API } from "./api.js"
+import { $Store, Store } from "./store.js"
+import { $CharRouteManager, CharRouteManager } from "./chat-route-manager.js"
 import { parseQueryParams } from "./parsers.js"
 import { parseAccountsCredentials } from "./parsers.js"
 import { ErrorWithType } from "./helpers.js"
+import { GridView } from "./views.js"
+import * as demo from "./demo.js"
 
 export function bootstrap() {
   const locationHash = String(window.location.hash ?? "").replace(/^\#/, "")
@@ -15,7 +18,7 @@ export function bootstrap() {
     const params = parseQueryParams(locationHash)
     const data = parseAccountsCredentials(params)
 
-    saveCredentialsInStorage(credentials = {
+    Storage.setCredentials(credentials = {
       accessToken: data.accessToken,
       expiredAt: data.expiredAt,
       scopes: data.scopes
@@ -25,16 +28,41 @@ export function bootstrap() {
     history.replaceState("", document.title, window.location.pathname + window.location.search)
   }
   else {
-    credentials = loadCredentialsFromStorage()
+    credentials = Storage.getCredentials()
   }
 
   if (!credentials) {
     return window.location.href = getAccountsUrl()
   }
 
-  const store = new Store()
+  const store = new Store(demo.initialState)
+  $Store.setInstance(store)
+
+  const storedMyProfile = Storage.getMyProfile()
+
+  if (storedMyProfile) {
+    console.warn("todo: uncomment")
+    // store.setMyProfile(storedMyProfile)
+  }
+
+  // Fake incoming messages
+  // demo.fakeIncomingMessages()
+
   const auth = new Auth(credentials)
-  const api = new API(auth, store)
+  const chatRouter = new ChatRouter()
+
+  const chatRouteManager = new CharRouteManager(store, chatRouter)
+
+  $CharRouteManager.setInstance(chatRouteManager)
+
+  const web= new WebAPI(auth)
+  const api = new API(auth, store, chatRouter, chatRouteManager, web)
+
+  $API.setInstance(api)
+
+  const gridView = new GridView()
+
+  document.getElementById("app")?.append(gridView.el)
 
   api.addListener("loginError", handleLoginError)
 
@@ -45,43 +73,6 @@ export function bootstrap() {
     document.addEventListener("dblclick", () => console.log(store.getState()))
   }
 }
-
-function loadCredentialsFromStorage(): Credentials | void {
-  try {
-    const data = localStorage.getItem("credentials")
-
-    if (!data) {
-      return
-    }
-
-    const json = JSON.parse(data)
-    const accessToken = String(json.accessToken ?? "")
-    const expiredAt = Number(json.expiredAt ?? "")
-    const scopes = parseScopes(json.scopes)
-
-    return {
-      accessToken,
-      expiredAt,
-      scopes,
-    }
-  }
-  catch (err) {
-    return console.warn(err)
-  }
-
-  function parseScopes(scopes: any) {
-    if (!Array.isArray(scopes)) {
-      return []
-    }
-
-    return scopes.map(scope => String(scope))
-  }
-}
-
-function saveCredentialsInStorage(credentials: Credentials) {
-  return localStorage.setItem("credentials", JSON.stringify(credentials))
-}
-
 
 function handleLoginError(err: Error | ErrorWithType) {
   if (err instanceof ErrorWithType && err.type === "authentication") {

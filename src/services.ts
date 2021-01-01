@@ -1,5 +1,8 @@
 import {
-  Credentials} from "./types.js";
+  ChatRoute,
+  Credentials,
+  MyProfile
+} from "./types.js";
 import {
   Disposable,
   TypedEventEmitter,
@@ -7,7 +10,11 @@ import {
   ErrorWithType,
   Listeners
 } from "./helpers.js";
+import { parseScopes } from "./parsers.js"
 
+/**
+ * Auth and related staff
+ */
 export class Auth {
   credentials: Credentials
 
@@ -205,5 +212,242 @@ export class RTM extends TypedEventEmitter<RTMEvents> implements Disposable {
     clearTimeout(this.pingTimerId)
     clearTimeout(this.pongTimerId)
     this.pingTimerId = setTimeout(() => this.ping(), RTM.PING_PONG_INTERVAL);
+  }
+}
+
+/**
+ * Simple client to perform Web API calls to agent-api
+ */
+export class WebAPI {
+  auth: Auth;
+
+  constructor(auth: Auth) {
+    this.auth = auth
+  }
+
+  performAsync<T = {}>(action: string, payload: object | null, options?: Partial<RequestInit>): Promise<T> {
+    const url = "https://api.livechatinc.com/v3.3/agent/action/send_event" + action;
+    const accessToken = this.auth.getAccessToken()
+    const region = this.auth.getRegion()
+    const init = {
+      ...options,
+      body: JSON.stringify(payload),
+      method: "POST",
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        "X-Region": region
+      },
+    }
+
+    return fetch(url, init).then((response) => this.parseResponse<T>(response))
+  }
+
+  protected parseResponse<T>(response: Response) {
+    if (response.ok === false) {
+      return response.json().then(function (json) {
+        const error = json?.error?.message ?? `Server responded with ${response.status} code`
+        const errorType = json?.error?.type
+
+        throw new ErrorWithType(error, errorType)
+      })
+    }
+    else {
+      return response.json() as Promise<T>
+    }
+  }
+}
+
+
+/**
+ * LiveChat platform does not have terms like my or queued chat.
+ * We have to gather information from few pushes and based on them determine 
+ * if chat is my or queued
+ */
+export interface ChatRouterTransition {
+  chatId: string
+  finalChatRoute: ChatRoute
+  initialChatRoute: ChatRoute | null
+  counter: number
+  requesterId: string | void
+  lastUpdatedAt: number
+  history: any[] /** for debug */
+}
+
+export interface ChatRouterEvents {
+  transitionStart(t: ChatRouterTransition): void
+  transitionEnd(t: ChatRouterTransition): void
+  routeChange(t: ChatRouterTransition): void
+}
+
+export class ChatRouter extends TypedEventEmitter<ChatRouterEvents> implements Disposable {
+  counter = 0
+  timerId?: number
+  transitions = new Map<string, ChatRouterTransition>()
+
+  constructor() {
+    super()
+    this.digest()
+  }
+
+  dispose() {
+    this.transitions.clear()
+    clearTimeout(this.timerId)
+  }
+
+  setChatRoute(chatId: string, prevChatRoute: ChatRoute | null, nextChatRoute: ChatRoute, requesterId: string | void) {
+    let transition = this.transitions.get(chatId)
+
+    if (!transition) {
+      this.transitions.set(chatId, transition = {
+        counter: this.counter,
+        chatId: chatId,
+        history: [
+          [prevChatRoute, nextChatRoute]
+        ],
+        requesterId: requesterId,
+        finalChatRoute: nextChatRoute,
+        initialChatRoute: prevChatRoute,
+        lastUpdatedAt: Date.now()
+      })
+
+      this.emit("transitionStart", transition)
+    }
+    else {
+      transition.finalChatRoute = nextChatRoute
+      transition.requesterId = requesterId || transition.requesterId
+      transition.history.push([prevChatRoute, nextChatRoute])
+      transition.lastUpdatedAt = Date.now()
+    }
+  }
+
+  digest() {
+    this.check()
+    this.timerId = setTimeout(() => this.digest(), 200)
+  }
+
+  tick() {
+    this.counter++
+    this.check()
+  }
+
+  check() {
+    const now = Date.now()
+
+    this.transitions.forEach((transition, chatId) => {
+      if (this.counter - transition.counter > 10) {
+        return this.finiteTransition(chatId)
+      }
+
+      if (now - transition.lastUpdatedAt >= 1000) {
+        return this.finiteTransition(chatId)
+      }
+    })
+  }
+
+  finiteTransition(chatId: string) {
+    const transition = this.transitions.get(chatId)
+
+    if (!transition) {
+      return
+    }
+
+    this.transitions.delete(chatId)
+
+    if (transition.initialChatRoute !== transition.finalChatRoute) {
+      this.emit("routeChange", transition)
+    }
+
+    this.emit("transitionEnd", transition)
+  }
+
+  cancelTransition(chatId: string) {
+    const transition = this.transitions.get(chatId)
+
+    if (!transition) {
+      return
+    }
+
+    this.transitions.delete(chatId)
+    this.emit("transitionEnd", transition)
+  }
+
+  reset() {
+    this.transitions.forEach((transition, chatId) => this.cancelTransition(chatId))
+    this.transitions.clear()
+    this.counter = 0
+  }
+}
+
+export namespace Storage {
+  export function getItem(key: string) {
+    const value = localStorage.getItem(key)
+
+    if (value) {
+      try {
+        return JSON.parse(value)
+      }
+      catch (err) {
+        return console.error(err)
+      }
+    }
+  }
+
+  export function setItem(key: string, value: any) {
+    return localStorage.setItem(key, JSON.stringify(value))
+  }
+
+  export function getCredentials(): Credentials | void {
+    const json = getItem("credentials")
+
+    if (!json) {
+      return
+    }
+
+    const accessToken = String(json.accessToken ?? "")
+    const expiredAt = Number(json.expiredAt ?? "")
+    const scopes = parseScopes(json.scopes)
+
+    // invalid credentials
+    if (Number.isNaN(expiredAt)) {
+      return
+    }
+
+    // credentials are expired, do not use them
+    if (expiredAt <= Date.now()) {
+      return
+    }
+
+    return {
+      accessToken,
+      expiredAt,
+      scopes,
+    }
+  }
+
+  export function setCredentials(credentials: Credentials) {
+    return setItem("credentials", credentials)
+  }
+
+  export function getMyProfile(): MyProfile | void {
+    const data = getItem("my_profile")
+
+    if (!data) {
+      return
+    }
+
+    const id = String(data.id ?? "")
+    const name = String(data.name ?? "")
+    const email = String(data.email ?? "")
+    const avatar = String(data.avatar ?? "")
+
+    return {
+      id, name, email, avatar
+    }
+  }
+
+  export function setMyProfile(myProfile: MyProfile) {
+    return setItem("my_profile", myProfile)
   }
 }

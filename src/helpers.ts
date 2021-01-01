@@ -1,4 +1,4 @@
-import { Chat, Thread, ChatRoute, ChatsSegments, Event } from "./types"
+import { Chat, Thread, ChatRoute, Message, SneakPeek, SneakPeekMessage } from "./types"
 
 export interface Disposable {
   dispose(): void
@@ -14,8 +14,8 @@ export interface Listener {
 export class Listeners {
   listeners: Listener[]
 
-  constructor() {
-    this.listeners = []
+  constructor(...listener: Listener[]) {
+    this.listeners = listener
   }
 
   register(...listener: Listener[]) {
@@ -111,6 +111,98 @@ export class ErrorWithType extends Error {
 }
 
 
+/**
+ * Simple injector for services. Can be useful to tests
+ * @example
+ * const AuthService { ... }
+ * const $AuthService = createInjector<AuthService>()
+ * $AuthService.setInstance(new AuthService)
+ * 
+ * const MyClass {
+ *   constructor(private auth = $AuthService())
+ * }
+ */
+export function createInjector<T>() {
+  let instance: T | null = null
+
+  function injector(): T {
+    if (instance == null) {
+      throw new Error("Instance hasn't been set. Please call $InjectorName.setInstance(serviceInstance)")
+    }
+
+    return instance;
+  }
+
+  injector.setInstance = function setInstance(_: T) {
+    instance = _
+  }
+
+  return injector
+}
+
+interface LRUCacheEvents<T> {
+  removed(item: T): void
+}
+
+export class LRUCache<T> extends TypedEventEmitter<LRUCacheEvents<T>> implements Disposable {
+  max: number
+  cache: Map<string, T>
+
+  constructor(max: number) {
+    super()
+    this.max = max;
+    this.cache = new Map();
+  }
+
+  dispose() {
+    for (let [key, item] of this.cache) {
+      this.emit("removed", item)
+      this.cache.delete(key)
+    }
+  }
+
+  get(key: string) {
+    let item = this.cache.get(key);
+
+    // move top
+    if (item) {
+      this.cache.delete(key);
+      this.cache.set(key, item);
+    }
+
+    return item;
+  }
+
+  set(key: string, val: T) {
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    }
+    // kill the oldest
+    else if (this.cache.size == this.max) {
+      const key = this.first()
+      const item = this.cache.get(key)
+
+      if (item) {
+        this.emit("removed", item)
+      }
+
+      this.cache.delete(key);
+    }
+
+    this.cache.set(key, val);
+  }
+
+  first() {
+    return this.cache.keys().next().value;
+  }
+
+  /** 
+   * this method does not change order of values
+   */
+  forEach(callback: (value: T, key: string) => void) {
+    this.cache.forEach(callback)
+  }
+}
 
 /** @source https://github.com/facebook/react/blob/master/packages/shared/shallowEqual.js */
 export function shallowEqual(objA: any, objB: any): boolean {
@@ -222,11 +314,8 @@ export function getPresentAgent(users: Chat["users"]) {
   }
 }
 
-export function mergeChats(currentChatsById: HashedChats, incomingChatsById: HashedChats, chatsSegments: ChatsSegments, myProfileId: string) {
-  const myChatIdsSet = new Set(chatsSegments.myChatIds.reverse())
-  const queuedChatIdsSet = new Set(chatsSegments.queuedChatIds.reverse())
-  const supervisedChatIdsSet = new Set(chatsSegments.supervisedChatIds.reverse())
-  const unassignedChatIdsSet = new Set(chatsSegments.unassignedChatIds.reverse())
+export function mergeChats(currentChatsById: HashedChats, incomingChatsById: HashedChats, chatIds: string[], myProfileId: string) {
+  const chatIdsSet = new Set(chatIds.reverse())
   const { enterChatIds, updateChatIds, exitChatIds } = compareChats(currentChatsById, incomingChatsById)
   const closedChatIds = new Set<string>()
   const chatsByIds = { ...currentChatsById }
@@ -240,22 +329,22 @@ export function mergeChats(currentChatsById: HashedChats, incomingChatsById: Has
 
     // add my chat to the list
     if (incomingChatRoute === "my") {
-      myChatIdsSet.add(chatId)
+      chatIdsSet.add(chatId)
     }
 
     // add supervised chats to the list
     if (incomingChatRoute === "supervised") {
-      supervisedChatIdsSet.add(chatId)
+      chatIdsSet.add(chatId)
     }
 
     // add queued chat to the list
     if (incomingChatRoute === "queued") {
-      queuedChatIdsSet.add(chatId)
+      chatIdsSet.add(chatId)
     }
 
     // add unassigned chat to the list
     if (incomingChatRoute === "unassigned") {
-      unassignedChatIdsSet.add(chatId)
+      chatIdsSet.add(chatId)
     }
   })
 
@@ -269,34 +358,22 @@ export function mergeChats(currentChatsById: HashedChats, incomingChatsById: Has
 
     // add chats to my chats segment
     if (incomingChatRoute === "my") {
-      myChatIdsSet.add(chatId)
-      queuedChatIdsSet.delete(chatId)
-      supervisedChatIdsSet.delete(chatId)
-      unassignedChatIdsSet.delete(chatId)
+      chatIdsSet.add(chatId)
     }
 
     // add queued chat to list of my chats
     if (incomingChatRoute === "queued") {
-      myChatIdsSet.delete(chatId)
-      queuedChatIdsSet.add(chatId)
-      supervisedChatIdsSet.delete(chatId)
-      unassignedChatIdsSet.delete(chatId)
+      chatIdsSet.add(chatId)
     }
 
     // add chats to my supervised segment
     if (incomingChatRoute === "supervised") {
-      myChatIdsSet.delete(chatId)
-      queuedChatIdsSet.delete(chatId)
-      supervisedChatIdsSet.add(chatId)
-      unassignedChatIdsSet.delete(chatId)
+      chatIdsSet.add(chatId)
     }
 
     // add unassigned chat to list of my chats
     if (incomingChatRoute === "unassigned") {
-      myChatIdsSet.delete(chatId)
-      queuedChatIdsSet.delete(chatId)
-      supervisedChatIdsSet.delete(chatId)
-      unassignedChatIdsSet.add(chatId)
+      chatIdsSet.add(chatId)
     }
   })
 
@@ -313,7 +390,7 @@ export function mergeChats(currentChatsById: HashedChats, incomingChatsById: Has
 
     // remove queued chat from the list of my chats & from segment
     if (exitChatRoute === "queued") {
-      return queuedChatIdsSet.delete(chatId)
+      return chatIdsSet.delete(chatId)
     }
 
     // mark chat as closed
@@ -343,16 +420,10 @@ export function mergeChats(currentChatsById: HashedChats, incomingChatsById: Has
     closedChatIds.add(chatId)
   })
 
-  const newChatsSegments: ChatsSegments = {
-    myChatIds: Array.from(myChatIdsSet).reverse(),
-    queuedChatIds: Array.from(queuedChatIdsSet).reverse(),
-    supervisedChatIds: Array.from(supervisedChatIdsSet).reverse(),
-    unassignedChatIds: Array.from(unassignedChatIdsSet).reverse(),
-  }
 
   return {
     chatsById: chatsByIds,
-    chatsSegments: newChatsSegments,
+    chatIds: Array.from(chatIdsSet).reverse(),
     closedChatIds: closedChatIds
   }
 }
@@ -471,13 +542,16 @@ export function mergeChat(currentChat: Chat, incomingChat: Chat): Chat {
     }
 
     // append incoming message
-    const messages = mergeMessages(currentRecentThread.messages, incomingRecentThread.messages)
+    const messages = mergeMessages(
+      Object.values(currentRecentThread.messages),
+      Object.values(incomingRecentThread.messages)
+    )
 
     // thread is not complete
     threads[currentRecentThread.id] = {
       ...currentRecentThread,
       incomplete,
-      messages,
+      messages: messages,
     }
   }
 
@@ -494,12 +568,51 @@ export function mergeChat(currentChat: Chat, incomingChat: Chat): Chat {
   }
 }
 
-export function getThreadLastMessage(thread: Thread): Event | undefined {
+export function getChatLastMessage(chat: Chat): Message | void {
+  if (chat.sneakPeek) {
+    return sneakPeekToMessage(chat.sneakPeek)
+  }
+
+  const lastThread = getLastThread(chat)
+
+  if (!lastThread) {
+    return
+  }
+
+  return getThreadLastMessage(lastThread)
+}
+
+export function getLastThread(chat: Chat) {
+  for (let i = chat.threadIds.length - 1; i > 0; i++) {
+    const threadId = chat.threadIds[i]
+
+    if (threadId && chat.threads[threadId]) {
+      return chat.threads[threadId]
+    }
+  }
+}
+
+export function getIncompleteThreadIds(chat: Chat) {
+  const threadIds: string[] = []
+
+  for (let i = 0; i < chat.threadIds.length; i++) {
+    const threadId = chat.threadIds[i]
+
+    if (chat.threads[threadId] && chat.threads[threadId].incomplete) {
+      threadIds.push(threadId)
+    }
+  }
+
+  return threadIds;
+}
+
+export function getThreadLastMessage(thread: Thread): Message | undefined {
   if (thread.messages.length > 0) {
     return thread.messages[thread.messages.length - 1]
   }
 }
-export function mergeMessages(target: Event[], ...sources: Event[][]) {
+
+export function mergeMessages(target: Message[], ...sources: Message[][]) {
   const targetMessageIds = new Set<string>()
   const targetCustomIds = new Set<string>()
   const result = target.concat()
@@ -539,4 +652,187 @@ export function mergeMessages(target: Event[], ...sources: Event[][]) {
   })
 
   return result
+}
+
+/**
+ * Get a user who participates in the chat(by default it is customer, but can be other agent)
+ */
+export function getChatCustomer(chat: Chat) {
+  if (chat.customerId && chat.users[chat.customerId]) {
+    return chat.users[chat.customerId]
+  }
+
+  const users = Object.values(chat.users)
+
+  // lookup for first present user
+  for (let i = 0; i < users.length; i++) {
+    if (users[i].present) {
+      return users[i]
+    }
+  }
+
+  // just return first user
+  if (users.length > 0) {
+    return users[0]
+  }
+
+  return
+}
+
+export function getChatMessages(chat: Chat) {
+  const messages: Message[] = [];
+
+  for (let i = 0; i < chat.threadIds.length; i++) {
+    const threadId = chat.threadIds[i]
+    const thread = chat.threads[threadId];
+
+    if (!thread) {
+      continue
+    }
+
+    // thread with restricted access
+    if (thread.restrictedAccess != null) {
+      messages.push({
+        id: `${thread.id}_restricted_access`,
+        text: `🔓 ${thread.restrictedAccess}`,
+        type: "system_message",
+        createdAt: thread.createdAt,
+        recipients: "all",
+      })
+
+      continue
+    }
+
+    for (let j = 0; j < thread.messages.length; j++) {
+      const message = thread.messages[j]
+
+      if (message) {
+        messages.push(message)
+      }
+    }
+
+    if (!thread.active && thread.tags.length > 0) {
+      messages.push({
+        id: `${thread.id}_tags`,
+        type: "system_message",
+        text: "Chat has been tagged. TODO: show the tags",
+        createdAt: thread.createdAt,
+        // tags: thread.tags,
+        recipients: "all",
+      })
+    }
+  }
+
+  if (chat.sneakPeek != null) {
+    messages.push(sneakPeekToMessage(chat.sneakPeek))
+  }
+
+  return messages;
+}
+
+export function sneakPeekToMessage(sneakPeek: SneakPeek): SneakPeekMessage {
+  return {
+    id: "sneak_peek",
+    type: "sneak_peek",
+    text: sneakPeek.text,
+    recipients: "all",
+    authorId: sneakPeek.authorId,
+    createdAt: sneakPeek.timestamp * 1000,
+  }
+}
+
+export function classNames(...args: any[]) {
+  let className = ""
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+
+    if (typeof arg === "string") {
+      className += arg + " ";
+    }
+
+    if (typeof arg === "object") {
+      Object.keys(arg).forEach(function (key) {
+        if (arg[key]) {
+          className += key + " ";
+        }
+      })
+    }
+  }
+
+  return className.trim()
+}
+
+export function getInitials(name: string) {
+  let rgx = new RegExp(/(\p{L}{1})\p{L}+/, 'gu');
+  let initials = [...name.matchAll(rgx)] || [];
+
+  return (
+    (initials.shift()?.[1] || '') + (initials.pop()?.[1] || '')
+  ).toUpperCase();
+}
+
+
+export function unique<T>(...args: T[][]): T[] {
+  const result: T[] = []
+  const seen = new Set<T>();
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+
+    for (let j = 0; j < arg.length; j++) {
+      const value = arg[j];
+
+      if (seen.has(value)) {
+        continue
+      }
+
+      seen.add(value);
+      result.push(value);
+    }
+  }
+
+  // free memory
+  seen.clear()
+
+  return result;
+}
+
+export function formatTime(time: number) {
+  const date = new Date(time)
+  const now = new Date()
+
+  // the same day
+  if (date.toDateString() === now.toDateString()) {
+    const hours = date.getHours().toString().padStart(2, "0")
+    const minutes = date.getMinutes().toString().padStart(2, "0")
+
+    return `${hours}:${minutes}`
+  }
+
+  return new Intl.DateTimeFormat().format(date)
+}
+
+export function stringifyMessage(message: Message) {
+  if (message.type === "sneak_peek") {
+    return `✍️ ${message.text}`
+  }
+
+  if (message.type === "message" || message.type === "system_message") {
+    return message.text
+  }
+
+  if (message.type === "filled_form") {
+    return "📝 Survey"
+  }
+
+  if (message.type === "rich_message") {
+    return "🖼 Rich message"
+  }
+
+  if (message.type === "file") {
+    return "File"
+  }
+
+  return ""
 }
