@@ -317,7 +317,7 @@ button {
 }
 
 .chats-list-item.selected {
-  background-color: var(--active-bg-color);
+  background-color: var(--active-color);
 }
 
 .chats-list-item:hover {
@@ -334,11 +334,11 @@ button {
   border-radius: 50%;
 }
 
-.avatar.avatar-broken .avatar-img {
+.avatar.avatar-no-img .avatar-img {
   display: none;
 }
 
-.avatar.avatar-broken .avatar-alt {
+.avatar.avatar-no-img .avatar-alt {
   display: block;
 }
 
@@ -354,9 +354,10 @@ button {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: #4384f5;
+  color: var(--second-text-color);
+  background-color: var(--active-bg-color);
   text-align: center;
-  line-height: 2.3;
+  line-height: 48px;
 }
 
 .chat-summary {

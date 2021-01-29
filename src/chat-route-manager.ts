@@ -19,7 +19,7 @@ export class CharRouteManager implements Disposable {
     this.store = store
     this.chatRouter = chatRouter
     this.routeChangeSubscribers = new Map()
-    this.routeChangeListener  = this.chatRouter.addListener("routeChange", transition => {
+    this.routeChangeListener = this.chatRouter.addListener("routeChange", transition => {
       this.handleRouteChange(transition)
     })
   }
@@ -40,7 +40,7 @@ export class CharRouteManager implements Disposable {
   }
 
   beginChatTransition(chatId: string) {
-    const prevChatRoute = this.getChatRoute(chatId) || null
+    const prevChatRoute = this.getChatRoute(chatId)
     const commitChatTransition = (requesterId: string | void) => {
       const nextChatRoute = this.getChatRoute(chatId)
 
@@ -55,7 +55,7 @@ export class CharRouteManager implements Disposable {
         requesterId
       )
     }
-  
+
     return {
       commitChatTransition
     }

@@ -1,12 +1,11 @@
 import * as dom from "./dom.js";
 import * as helpers from "./helpers.js";
-import { $Store, Store } from "./store.js";
+import { $Store, State, Store } from "./store.js";
 import { Chat, ChatRoute, Message, MyProfile, RoutingStatus, User } from "./types.js";
 import { ReverseScroll } from "./reverse-scroll.js";
 import { $API, API } from "./api.js";
 import { getAccountsUrl } from "./config.js";
 import { $CharRouteManager } from "./chat-route-manager.js";
-import { ChatRouter } from "./services.js";
 
 export class GridView implements helpers.Disposable {
   el: Element
@@ -93,7 +92,7 @@ export class HeaderView implements helpers.Disposable {
           ])
         })
       ).el,
-      dom.createEl("div", { className: "temp-logo", textContent: "LiveChat X"}),
+      dom.createEl("div", { className: "temp-logo", textContent: "LiveChat X" }),
       this.search = dom.createEl("div", { className: "search hidden" }, [
         dom.createEl("label", { className: "search-label", htmlFor: "search", }, [
           createIconEl({ name: "search", size: 14 })
@@ -144,15 +143,15 @@ export class HeaderView implements helpers.Disposable {
         this.profile.append(
           (this.avatarView = new AvatarView({
             alt: helpers.getInitials(myProfile.name),
-            url: myProfile.avatar,
+            src: myProfile.avatar,
             size: 36
           })).el,
           createIconEl({ name: "caret-down-fill", size: "10" })
         )
       }
       else {
-        this.avatarView.setAlt(helpers.getInitials(myProfile.name))
-        this.avatarView.setAvatar(myProfile.avatar)
+        this.avatarView.setAlt(myProfile.name)
+        this.avatarView.setSrc(myProfile.avatar)
       }
     }
     else {
@@ -260,34 +259,34 @@ interface ChatsListItemConnectedProps {
 
 export class ChatsListItemView implements helpers.Disposable {
   el: Element
-  chatId: string
-  itemAvatarEl: Element
   avatar: AvatarView
+  chatRoute: ChatRoute | void
+  itemAvatarEl: Element
   chatSummaryEl: Element
   chatTitle: Element
   chatMeta: Element
   chatSubtitle: Element
   storeListener: helpers.Listener
   clickListener: helpers.Listener
-  store: Store
+  chatRouteListener: helpers.Listener
+  connectedProps?: ChatsListItemConnectedProps
 
   constructor(
-    props: ChatsListItemProps,
-    store = $Store()
+    protected props: ChatsListItemProps,
+    protected store = $Store(),
+    protected charRouteManager = $CharRouteManager()
   ) {
-    this.chatId = props.chatId
-    this.store = store
+    const connProps = this.storeMapper(this.store.getState())
+    const customer = connProps.chat ? helpers.getChatCustomer(connProps.chat) : void 0
+
     this.el = dom.createEl("div", { className: "chats-list-item", }, [
-      this.itemAvatarEl = dom.createEl("div", {
-        className: "chat-list-item-avatar"
-      },
-        [
-          (this.avatar = new AvatarView({
-            url: "https://i.pravatar.cc/512?img=3",
-            size: 48,
-            alt: "TU",
-          })).el
-        ]),
+      this.itemAvatarEl = dom.createEl("div", { className: "chat-list-item-avatar" }, [
+        (this.avatar = new AvatarView({
+          size: 48,
+          alt: customer?.name ?? "Visitor",
+          src: customer?.avatar
+        })).el
+      ]),
       this.chatSummaryEl = dom.createEl("div", { className: "chat-summary", }, [
         dom.createEl("div", { className: "chat-summary-row", }, [
           this.chatTitle = dom.createEl("div", { className: "chat-title", textContent: "Unnamed visitor" }),
@@ -298,22 +297,29 @@ export class ChatsListItemView implements helpers.Disposable {
     ])
 
     this.clickListener = dom.addListener(this.el, "click", () => this.selectChat())
+    this.chatRoute = this.charRouteManager.getCurrentChatRoute(props.chatId)
 
-    this.storeListener = store.connect<ChatsListItemConnectedProps>(state => ({
-      chat: state.chatsByIds[props.chatId],
-      selectedChatId: state.selectedChatId,
-    }), props => this.render(props))
+    this.storeListener = store.connect<ChatsListItemConnectedProps>(
+      state => this.storeMapper(state),
+      props => this.render(props)
+    )
+
+    this.chatRouteListener = this.charRouteManager.subscribe(props.chatId, nextChatRoute => {
+      this.chatRoute = nextChatRoute
+
+      if (this.connectedProps) {
+        this.render(this.connectedProps)
+      }
+    })
   }
 
   dispose() {
     this.storeListener.unbind()
     this.clickListener.unbind()
-    this.chatSubtitle = null!
-    this.chatMeta = null!
-    this.chatTitle = null!
-    this.chatSummaryEl = null!
+    this.chatRouteListener.unbind()
     this.avatar.dispose()
     this.itemAvatarEl.remove()
+    this.el.remove()
   }
 
   render(props: ChatsListItemConnectedProps) {
@@ -323,13 +329,19 @@ export class ChatsListItemView implements helpers.Disposable {
 
       this.chatTitle.textContent = customer?.name ?? "Unnamed visitor"
 
-      if (lastMessage) {
+      if (this.chatRoute === "queued") {
+        this.chatSubtitle.textContent = `Waiting in a queue`
+      }
+      else if (this.chatRoute === "unassigned") {
+        this.chatSubtitle.textContent = `Unassigned chat waiting for reply`
+      }
+      else if (lastMessage) {
         this.chatSubtitle.textContent = helpers.stringifyMessage(lastMessage)
       }
     }
 
     // update selected item
-    if (this.chatId === props.selectedChatId) {
+    if (this.props.chatId === props.selectedChatId) {
       this.el.classList.add("selected")
     }
     else {
@@ -338,7 +350,14 @@ export class ChatsListItemView implements helpers.Disposable {
   }
 
   selectChat() {
-    this.store.setSelectedChatId(this.chatId)
+    this.store.setSelectedChatId(this.props.chatId)
+  }
+
+  protected storeMapper(state: State): ChatsListItemConnectedProps {
+    return {
+      chat: state.chatsByIds[this.props.chatId],
+      selectedChatId: state.selectedChatId,
+    }
   }
 }
 
@@ -847,7 +866,7 @@ export class MessageView implements helpers.Disposable {
         this.el.append(
           dom.createEl("div", { className: "message-avatar" }, [
             (this.avatar = new AvatarView({
-              url: author.avatar,
+              src: author.avatar,
               alt: helpers.getInitials(author.name),
               size: 36
             })).el
@@ -887,7 +906,7 @@ export class MessageView implements helpers.Disposable {
         this.el.append(
           dom.createEl("div", { className: "message-avatar" }, [
             (this.avatar = new AvatarView({
-              url: author.avatar,
+              src: author.avatar,
               alt: helpers.getInitials(author.name),
               size: 36
             })).el
@@ -926,7 +945,7 @@ export class MessageView implements helpers.Disposable {
         this.el.append(
           dom.createEl("div", { className: "message-avatar" }, [
             (this.avatar = new AvatarView({
-              url: author.avatar,
+              src: author.avatar,
               alt: helpers.getInitials(author.name),
               size: 36
             })).el
@@ -970,7 +989,7 @@ export class MessageView implements helpers.Disposable {
         this.el.append(
           dom.createEl("div", { className: "message-avatar" }, [
             (this.avatar = new AvatarView({
-              url: author.avatar,
+              src: author.avatar,
               alt: helpers.getInitials(author.name),
               size: 36
             })).el
@@ -996,7 +1015,7 @@ export class MessageView implements helpers.Disposable {
         this.el.append(
           dom.createEl("div", { className: "message-avatar" }, [
             (this.avatar = new AvatarView({
-              url: author.avatar,
+              src: author.avatar,
               alt: helpers.getInitials(author.name),
               size: 36
             })).el
@@ -1207,69 +1226,64 @@ export class DetailsView implements helpers.Disposable {
 }
 
 interface AvatarProps {
-  url?: string
-  alt: string
   size: number
+  alt: string
+  src?: string
 }
 
 export class AvatarView implements helpers.Disposable {
-  el: Element
+  el: HTMLDivElement
   img?: HTMLImageElement
+  alt: HTMLDivElement
   imgListener?: dom.DomListener
 
-  constructor(props: AvatarProps) {
-    this.el = dom.createEl("div", {
-      className: helpers.classNames("avatar", {
-        "avatar-broken": !props.url
-      }),
-    }, [
-      props.url
-        ? (
-          this.img = dom.createEl("img", {
-            className: "avatar-img",
-            src: props.url,
-            height: props.size,
-            width: props.size,
-          })
-        )
-        : "",
-      dom.createEl("div", {
-        className: "avatar-alt",
-        textContent: helpers.getInitials(props.alt) || "👻",
-      })
+  constructor(
+    protected props: AvatarProps
+  ) {
+    const className = helpers.classNames("avatar", { "avatar-no-img": !props.src })
+    const altText = helpers.getInitials(props.alt)
+
+    this.el = dom.createEl("div", { className: className }, [
+      props.src ? (
+        this.img = dom.createEl("img", {
+          className: "avatar-img",
+          src: props.src,
+          height: props.size,
+          width: props.size,
+        })
+      ) : "",
+      this.alt = dom.createEl("div", { className: "avatar-alt", textContent: altText })
     ])
 
-    // @ts-ignore
     this.el.style.width = `${props.size}px`
-
-    // @ts-ignore
     this.el.style.height = `${props.size}px`
+    this.alt.style.lineHeight = `${props.size}px`
 
     if (this.img) {
-      this.imgListener = dom.addListener(this.img, "error", this.handleError)
+      this.imgListener = dom.addListener(this.img, "error", this.handleImgError)
     }
-  }
-
-  setAlt(alt: string) {
-    if (this.img) {
-      this.img.alt = alt
-    }
-  }
-
-  setAvatar(avatar: string) {
-    if (this.img) {
-      this.img.src = avatar
-    }
-  }
-
-  handleError = () => {
-    this.el.classList.add("avatar-broken")
   }
 
   dispose() {
     this.imgListener?.dispose()
     this.el.remove()
-    this.el = null!
+  }
+
+  setAlt(alt: string) {
+    if (this.props.alt === alt) return // no changes
+    if (this.img) this.img.alt = alt
+    this.alt.textContent = helpers.getInitials(alt)
+    this.props.alt === alt
+  }
+
+  setSrc(src: string) {
+    if (this.props.src === src) return // no changes
+    if (this.img) this.img.src = src
+    this.props.src = src
+  }
+
+  protected handleImgError() {
+    this.el.classList.add("avatar-no-img")
   }
 }
 

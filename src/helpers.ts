@@ -583,7 +583,7 @@ export function getChatLastMessage(chat: Chat): Message | void {
 }
 
 export function getLastThread(chat: Chat) {
-  for (let i = chat.threadIds.length - 1; i > 0; i++) {
+  for (let i = chat.threadIds.length - 1; i >= 0; i++) {
     const threadId = chat.threadIds[i]
 
     if (threadId && chat.threads[threadId]) {
@@ -834,5 +834,5 @@ export function stringifyMessage(message: Message) {
     return "File"
   }
 
-  return ""
+  return "You should not see this"
 }

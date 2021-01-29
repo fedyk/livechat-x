@@ -268,7 +268,7 @@ export class WebAPI {
 export interface ChatRouterTransition {
   chatId: string
   finalChatRoute: ChatRoute
-  initialChatRoute: ChatRoute | null
+  initialChatRoute: ChatRoute | void
   counter: number
   requesterId: string | void
   lastUpdatedAt: number
@@ -296,7 +296,7 @@ export class ChatRouter extends TypedEventEmitter<ChatRouterEvents> implements D
     clearTimeout(this.timerId)
   }
 
-  setChatRoute(chatId: string, prevChatRoute: ChatRoute | null, nextChatRoute: ChatRoute, requesterId: string | void) {
+  setChatRoute(chatId: string, prevChatRoute: ChatRoute | void, nextChatRoute: ChatRoute, requesterId: string | void) {
     let transition = this.transitions.get(chatId)
 
     if (!transition) {
