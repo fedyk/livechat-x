@@ -867,7 +867,7 @@ export class MessageView implements helpers.Disposable {
           dom.createEl("div", { className: "message-avatar" }, [
             (this.avatar = new AvatarView({
               src: author.avatar,
-              alt: helpers.getInitials(author.name),
+              alt: author.name,
               size: 36
             })).el
           ])
@@ -907,7 +907,7 @@ export class MessageView implements helpers.Disposable {
           dom.createEl("div", { className: "message-avatar" }, [
             (this.avatar = new AvatarView({
               src: author.avatar,
-              alt: helpers.getInitials(author.name),
+              alt: author.name,
               size: 36
             })).el
           ])
@@ -946,7 +946,7 @@ export class MessageView implements helpers.Disposable {
           dom.createEl("div", { className: "message-avatar" }, [
             (this.avatar = new AvatarView({
               src: author.avatar,
-              alt: helpers.getInitials(author.name),
+              alt: author.name,
               size: 36
             })).el
           ])
@@ -990,7 +990,7 @@ export class MessageView implements helpers.Disposable {
           dom.createEl("div", { className: "message-avatar" }, [
             (this.avatar = new AvatarView({
               src: author.avatar,
-              alt: helpers.getInitials(author.name),
+              alt: author.name,
               size: 36
             })).el
           ])
@@ -1016,7 +1016,7 @@ export class MessageView implements helpers.Disposable {
           dom.createEl("div", { className: "message-avatar" }, [
             (this.avatar = new AvatarView({
               src: author.avatar,
-              alt: helpers.getInitials(author.name),
+              alt: author.name,
               size: 36
             })).el
           ])
@@ -1051,11 +1051,8 @@ export class MessageView implements helpers.Disposable {
 
   dispose() {
     this.messageMeta?.dispose()
-    this.messageMeta = null!
     this.avatar?.dispose()
-    this.avatar = null!
     this.el.remove()
-    this.el = null!
   }
 }
 

@@ -16,9 +16,13 @@ import { parseScopes } from "./parsers.js"
  * Auth and related staff
  */
 export class Auth {
-  credentials: Credentials
+  credentials?: Credentials
 
-  constructor(credentials: Credentials) {
+  constructor(credentials?: Credentials) {
+    this.credentials = credentials
+  }
+
+  setCredentials(credentials: Credentials) {
     this.credentials = credentials
   }
 
@@ -31,7 +35,7 @@ export class Auth {
   }
 
   getRegion() {
-    return this.credentials?.accessToken?.split(":")[0]
+    return this.credentials?.accessToken?.split(":")[0] ?? "dal"
   }
 }
 

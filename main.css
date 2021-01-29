@@ -310,18 +310,18 @@ button {
   display: flex;
   flex-direction: row;
   cursor: pointer;
-  /* margin-bottom: 4px; */
   padding: 14px;
   will-change: background-color;
   transition: background-color 0.1s ease-in-out;
 }
 
-.chats-list-item.selected {
-  background-color: var(--active-color);
-}
-
 .chats-list-item:hover {
   background-color: var(--active-bg-color);
+}
+
+.chats-list-item.selected,
+.chats-list-item.selected:hover {
+  background-color: var(--active-color);
 }
 
 .chats-list-item-avatar {

@@ -1,5 +1,4 @@
 import {
-  API$Event,
   API$Event$Message,
   API$Push$ChatDeactivated,
   API$Push$EventsMarkedAsSeen,
@@ -40,7 +39,6 @@ import {
   parseChat,
   parseSneakPeek,
   parseChatTransferredPayload,
-  parseCustomerLastVisit,
   parseUser,
   parseQueue
 } from "./parsers.js";
@@ -61,14 +59,14 @@ export class API extends TypedEventEmitter<APIEvents> implements Disposable {
   chatRouteManager: CharRouteManager
   web: WebAPI
 
-  constructor(auth: Auth, store: Store, chatRouter: ChatRouter, chatRouteManager: CharRouteManager, web: WebAPI) {
+  constructor(auth: Auth, store: Store, chatRouter: ChatRouter, chatRouteManager: CharRouteManager) {
     super();
     this.rtmListeners = new Listeners();
     this.auth = auth;
     this.store = store;
     this.chatRouter = chatRouter
     this.chatRouteManager = chatRouteManager
-    this.web = web
+    this.web = new WebAPI(auth)
   }
 
   dispose() {
@@ -82,7 +80,7 @@ export class API extends TypedEventEmitter<APIEvents> implements Disposable {
   }
 
   connect() {
-    const region = this.auth.getRegion();
+    const region = this.auth.getRegion()
     const url = `wss://${getAgentAPIHost(region)}/v3.3/agent/rtm/ws`;
 
     this.rtm = new RTM(url)

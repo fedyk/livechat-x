@@ -22,11 +22,13 @@
   <script type="module" src="./modules/api.js"></script>
   <script type="module" src="./modules/reverse-scroll.js"></script>
   <script type="module" src="./modules/views.js"></script>
-  <script type="module" src="./modules/bootstrap.js"></script>
+  <script type="module" src="./modules/app.js"></script>
   <script type="module">
-    import { bootstrap } from "./modules/bootstrap.js"
+    import { App } from "./modules/app.js"
+    // import * as demo from "./modules/demo.js"
 
-    bootstrap()
+    // new App(initialState).bootstrap()
+    new App().bootstrap()
   </script>
 </body>
 
