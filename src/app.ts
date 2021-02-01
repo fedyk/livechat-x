@@ -1,6 +1,6 @@
 import { Credentials } from "./types"
 import { __DEV__, getAccountsUrl } from "./config.js"
-import { Auth, ChatRouter, Storage, WebAPI } from "./services.js"
+import { Auth, ChatRouter, Storage } from "./services.js"
 import { $API, API } from "./api.js"
 import { $Store, State, Store } from "./store.js"
 import { $CharRouteManager, CharRouteManager } from "./chat-route-manager.js"
@@ -8,6 +8,7 @@ import { parseQueryParams } from "./parsers.js"
 import { parseAccountsCredentials } from "./parsers.js"
 import { Disposable, ErrorWithType, Listeners } from "./helpers.js"
 import { GridView } from "./views.js"
+import { $LazyConnect, LazyConnect } from "./lazy-connect.js"
 import * as dom from "./dom.js"
 
 export class App implements Disposable {
@@ -15,6 +16,7 @@ export class App implements Disposable {
   chatRouter: ChatRouter
   chatRouteManager: CharRouteManager
   store: Store
+  lazyConnect: LazyConnect
   api: API
   listeners: Listeners
 
@@ -22,13 +24,20 @@ export class App implements Disposable {
     $Store.setInstance(
       this.store = new Store(initialState)
     )
+
     this.auth = new Auth()
     this.chatRouter = new ChatRouter()
+
     $CharRouteManager.setInstance(
       this.chatRouteManager = new CharRouteManager(this.store, this.chatRouter)
     )
+
     $API.setInstance(
       this.api = new API(this.auth, this.store, this.chatRouter, this.chatRouteManager)
+    )
+
+    $LazyConnect.setInstance(
+      this.lazyConnect = new LazyConnect(this.store)
     )
 
     this.listeners = new Listeners()
@@ -47,6 +56,8 @@ export class App implements Disposable {
     this.api.dispose()
     this.chatRouteManager.dispose()
     this.chatRouter.dispose()
+    this.store.dispose()
+    this.lazyConnect.dispose()
   }
 
   bootstrap() {

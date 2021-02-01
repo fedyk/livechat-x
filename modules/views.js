@@ -5,6 +5,7 @@ import { ReverseScroll } from "./reverse-scroll.js";
 import { $API } from "./api.js";
 import { getAccountsUrl } from "./config.js";
 import { $CharRouteManager } from "./chat-route-manager.js";
+import { $LazyConnect } from "./lazy-connect.js";
 export class GridView {
     constructor() {
         this.el = dom.createEl("div", {
@@ -166,10 +167,11 @@ export class ChatsListView {
     }
 }
 export class ChatsListItemView {
-    constructor(props, store = $Store(), charRouteManager = $CharRouteManager()) {
+    constructor(props, store = $Store(), charRouteManager = $CharRouteManager(), lazyConnect = $LazyConnect()) {
         this.props = props;
         this.store = store;
         this.charRouteManager = charRouteManager;
+        this.lazyConnect = lazyConnect;
         const connProps = this.storeMapper(this.store.getState());
         const customer = connProps.chat ? helpers.getChatCustomer(connProps.chat) : void 0;
         this.el = dom.createEl("div", { className: "chats-list-item", }, [
@@ -190,7 +192,7 @@ export class ChatsListItemView {
         ]);
         this.clickListener = dom.addListener(this.el, "click", () => this.selectChat());
         this.chatRoute = this.charRouteManager.getCurrentChatRoute(props.chatId);
-        this.storeListener = store.connect(state => this.storeMapper(state), props => this.render(props));
+        this.storeListener = lazyConnect.connect(state => this.storeMapper(state), props => this.render(props));
         this.chatRouteListener = this.charRouteManager.subscribe(props.chatId, nextChatRoute => {
             this.chatRoute = nextChatRoute;
             if (this.connectedProps) {

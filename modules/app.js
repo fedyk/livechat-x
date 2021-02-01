@@ -7,6 +7,7 @@ import { parseQueryParams } from "./parsers.js";
 import { parseAccountsCredentials } from "./parsers.js";
 import { ErrorWithType, Listeners } from "./helpers.js";
 import { GridView } from "./views.js";
+import { $LazyConnect, LazyConnect } from "./lazy-connect.js";
 import * as dom from "./dom.js";
 export class App {
     constructor(initialState) {
@@ -15,6 +16,7 @@ export class App {
         this.chatRouter = new ChatRouter();
         $CharRouteManager.setInstance(this.chatRouteManager = new CharRouteManager(this.store, this.chatRouter));
         $API.setInstance(this.api = new API(this.auth, this.store, this.chatRouter, this.chatRouteManager));
+        $LazyConnect.setInstance(this.lazyConnect = new LazyConnect(this.store));
         this.listeners = new Listeners();
         this.listeners.register(this.api.addListener("loginError", err => this.handleLoginError(err)));
         // debug code
@@ -28,6 +30,8 @@ export class App {
         this.api.dispose();
         this.chatRouteManager.dispose();
         this.chatRouter.dispose();
+        this.store.dispose();
+        this.lazyConnect.dispose();
     }
     bootstrap() {
         const locationHash = String(window.location.hash ?? "").replace(/^\#/, "");
