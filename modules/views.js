@@ -171,7 +171,7 @@ export class ChatsListItemView {
         this.store = store;
         this.charRouteManager = charRouteManager;
         const connProps = this.storeMapper(this.store.getState());
-        const customer = connProps.chat ? helpers.getChatCustomer(connProps.chat) : void 0;
+        const customer = connProps.chat ? helpers.getChatRecipient(connProps.chat) : void 0;
         this.el = dom.createEl("div", { className: "chats-list-item", }, [
             this.itemAvatarEl = dom.createEl("div", { className: "chat-list-item-avatar" }, [
                 (this.avatar = new AvatarView({
@@ -208,7 +208,7 @@ export class ChatsListItemView {
     }
     render(props) {
         if (props.chat) {
-            const customer = helpers.getChatCustomer(props.chat);
+            const customer = helpers.getChatRecipient(props.chat);
             const lastMessage = helpers.getChatLastMessage(props.chat);
             this.chatTitle.textContent = customer?.name ?? "Unnamed visitor";
             if (this.chatRoute === "queued") {
@@ -311,6 +311,7 @@ export class ChatView {
         this.chatId = props.chatId;
         this.el = dom.createEl("div", { className: "chat-container" }, [
             (this.chat = new ChatFeedView({ chatId: props.chatId })).el,
+            (this.details = new DetailsView({ chatId: props.chatId })).el
         ]);
         console.warn("uncomment this.details = ... above");
     }
@@ -454,7 +455,7 @@ export class ChatBodyView {
             if (message.type === "message" && message.isSending) {
                 return "sending";
             }
-            const customer = helpers.getChatCustomer(chat);
+            const customer = helpers.getChatRecipient(chat);
             if (customer && customer.seenUpTo > message.createdAt) {
                 return "seen";
             }
@@ -762,116 +763,100 @@ class MessageMetaView {
     }
 }
 export class DetailsView {
-    constructor(props) {
-        this.el = dom.createEl("div", {
-            className: "details",
-            innerHTML: `
-          <div class="details-header">
-            <div class="details-title">Visitor Info ${props.chatId}</div>
-            <button class="details-close">
-              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" class="bi bi-x"
-                viewBox="0 0 16 16">
-                <path fill-rule="evenodd"
-                  d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z" />
-              </svg>
-            </button>
-          </div>
-
-          <div class="details-body">
-            <div class="details-row">
-              <div class="details-avatar">
-                <div class="avatar">
-                  <img src="https://i.pravatar.cc/512?img=2" height="48px" width="48px" />
-                </div>
-              </div>
-              <div class="details-basic">
-                <div class="text-primary">John Wick</div>
-                <div class="text-muted">john@sec.email</div>
-              </div>
-            </div>
-
-            <div class="details-row">
-              <div class="details-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-geo-alt"
-                  viewBox="0 0 16 16">
-                  <path fill-rule="evenodd"
-                    d="M12.166 8.94C12.696 7.867 13 6.862 13 6A5 5 0 0 0 3 6c0 .862.305 1.867.834 2.94.524 1.062 1.234 2.12 1.96 3.07A31.481 31.481 0 0 0 8 14.58l.208-.22a31.493 31.493 0 0 0 1.998-2.35c.726-.95 1.436-2.008 1.96-3.07zM8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10z" />
-                  <path fill-rule="evenodd" d="M8 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 1a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
-                </svg>
-              </div>
-              <div class="text-primary">Lviv, Ukraine</div>
-            </div>
-            <div class="details-row">
-              <div class="details-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-wifi"
-                  viewBox="0 0 16 16">
-                  <path
-                    d="M15.385 6.115a.485.485 0 0 0-.048-.736A12.443 12.443 0 0 0 8 3 12.44 12.44 0 0 0 .663 5.379a.485.485 0 0 0-.048.736.518.518 0 0 0 .668.05A11.448 11.448 0 0 1 8 4c2.507 0 4.827.802 6.717 2.164.204.148.489.13.668-.049z" />
-                  <path
-                    d="M13.229 8.271c.216-.216.194-.578-.063-.745A9.456 9.456 0 0 0 8 6c-1.905 0-3.68.56-5.166 1.526a.48.48 0 0 0-.063.745.525.525 0 0 0 .652.065A8.46 8.46 0 0 1 8 7a8.46 8.46 0 0 1 4.577 1.336c.205.132.48.108.652-.065zm-2.183 2.183c.226-.226.185-.605-.1-.75A6.472 6.472 0 0 0 8 9c-1.06 0-2.062.254-2.946.704-.285.145-.326.524-.1.75l.015.015c.16.16.408.19.611.09A5.478 5.478 0 0 1 8 10c.868 0 1.69.201 2.42.56.203.1.45.07.611-.091l.015-.015zM9.06 12.44c.196-.196.198-.52-.04-.66A1.99 1.99 0 0 0 8 11.5a1.99 1.99 0 0 0-1.02.28c-.238.14-.236.464-.04.66l.706.706a.5.5 0 0 0 .708 0l.707-.707z" />
-                </svg>
-              </div>
-              <div class="text-primary">132.234.543.2</div>
-            </div>
-            <div class="details-row">
-              <dl class="definitions-list">
-                <dt>Referrer</dt>
-                <dd>http://www.google.com/</dd>
-
-                <dt>Browser</dt>
-                <dd>Chrome 47 on Windows 40</dd>
-
-                <dt>Total visits</dt>
-                <dd>12</dd>
-              </dl>
-            </div>
-            <div class="details-row">
-              <div>
-                <div class="regular-text">Session fields </div>
-
-                <dl class="definitions-list">
-                  <dt>username</dt>
-                  <dd>@gsefs</dd>
-
-                  <dt>cart_value</dt>
-                  <dd>450</dd>
-
-                  <dt>order date</dt>
-                  <dd>05/21/2019</dd>
-                </dl>
-              </div>
-            </div>
-            <div class="details-row">
-              <div class="">
-                <div class="regular-text">Last pages </div>
-
-                <dl class="definitions-list">
-                  <dt>LiveChat sdsd</dt>
-                  <dd>livechat.com/sdfsdf/sadfs</dd>
-
-                  <dt>LiveChat - Tour</dt>
-                  <dd>https://www.livechatinc.com/tour</dd>
-
-                  <dt>LiveChat - Homepage</dt>
-                  <dd>https://www.livechatinc.com/</dd>
-                </dl>
-              </div>
-            </div>
-            <div class="details-actions">
-              <a href="#" class="details-action">
-                Edit visitor
-              </a>
-              <a href="#" class="details-action details-action-destroy">
-                Ban visitor
-              </a>
-            </div>
-          </div>
-    `
-        });
+    constructor(props, store = $Store()) {
+        this.props = props;
+        this.store = store;
+        this.connProps = this.storeMapper(this.store.getState());
+        this.el = dom.createEl("div", { className: "details" }, [
+            dom.createEl("div", { className: "details-header" }, [
+                dom.createEl("div", { className: "details-title", textContent: "Details" }),
+                dom.createEl("button", {
+                    className: "details-close", innerHTML: `
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" class="bi bi-x" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z" />
+          </svg>
+        `
+                }),
+            ]),
+            dom.createEl("div", { className: "details-body" }, [
+                dom.createEl("div", { className: "details-row" }, [
+                    this.detailsAvatar = dom.createEl("div", { className: "details-avatar" }),
+                    dom.createEl("div", { className: "details-basic" }, [
+                        dom.createEl("div", { className: "text-primary", textContent: this.connProps.customer ? this.connProps.customer.name : "" }),
+                        dom.createEl("div", { className: "text-muted", textContent: this.connProps.customer ? this.connProps.customer.name : "" })
+                    ])
+                ]),
+                dom.createEl("div", { className: "details-row" }, [
+                    dom.createEl("div", { className: "details-icon", innerHTML: `
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-geo-alt" viewBox="0 0 16 16">
+              <path fill-rule="evenodd" d="M12.166 8.94C12.696 7.867 13 6.862 13 6A5 5 0 0 0 3 6c0 .862.305 1.867.834 2.94.524 1.062 1.234 2.12 1.96 3.07A31.481 31.481 0 0 0 8 14.58l.208-.22a31.493 31.493 0 0 0 1.998-2.35c.726-.95 1.436-2.008 1.96-3.07zM8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10z" />
+              <path fill-rule="evenodd" d="M8 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 1a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+            </svg>
+          ` }),
+                    dom.createEl("div", { className: "text-primary", textContent: "Lviv, Ukraine" })
+                ]),
+                dom.createEl("div", { className: "details-row" }, [
+                    dom.createEl("div", { className: "details-icon", innerHTML: `
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-wifi" viewBox="0 0 16 16">
+              <path d="M15.385 6.115a.485.485 0 0 0-.048-.736A12.443 12.443 0 0 0 8 3 12.44 12.44 0 0 0 .663 5.379a.485.485 0 0 0-.048.736.518.518 0 0 0 .668.05A11.448 11.448 0 0 1 8 4c2.507 0 4.827.802 6.717 2.164.204.148.489.13.668-.049z" />
+              <path d="M13.229 8.271c.216-.216.194-.578-.063-.745A9.456 9.456 0 0 0 8 6c-1.905 0-3.68.56-5.166 1.526a.48.48 0 0 0-.063.745.525.525 0 0 0 .652.065A8.46 8.46 0 0 1 8 7a8.46 8.46 0 0 1 4.577 1.336c.205.132.48.108.652-.065zm-2.183 2.183c.226-.226.185-.605-.1-.75A6.472 6.472 0 0 0 8 9c-1.06 0-2.062.254-2.946.704-.285.145-.326.524-.1.75l.015.015c.16.16.408.19.611.09A5.478 5.478 0 0 1 8 10c.868 0 1.69.201 2.42.56.203.1.45.07.611-.091l.015-.015zM9.06 12.44c.196-.196.198-.52-.04-.66A1.99 1.99 0 0 0 8 11.5a1.99 1.99 0 0 0-1.02.28c-.238.14-.236.464-.04.66l.706.706a.5.5 0 0 0 .708 0l.707-.707z" />
+            </svg>
+          ` }),
+                    dom.createEl("div", { className: "text-primary", textContent: "132.234.543.2" })
+                ]),
+                dom.createEl("div", { className: "details-row" }, [
+                    dom.createEl("dl", { className: "definitions-list" }, [
+                        dom.createEl("dt", { textContent: "Referrer" }),
+                        dom.createEl("dd", { textContent: "http://www.google.com/" }),
+                        dom.createEl("dt", { textContent: "Browser" }),
+                        dom.createEl("dd", { textContent: "Chrome 47 on Windows 40" }),
+                        dom.createEl("dt", { textContent: "Total visits" }),
+                        dom.createEl("dd", { textContent: "12" })
+                    ])
+                ]),
+                dom.createEl("div", { className: "details-row" }, [
+                    dom.createEl("div", {}, [
+                        dom.createEl("div", { className: "regular-text", textContent: "Session fields" }),
+                        dom.createEl("dl", { className: "definitions-list" }, [
+                            dom.createEl("dt", { textContent: "username" }),
+                            dom.createEl("dd", { textContent: "@gsefs" }),
+                            dom.createEl("dt", { textContent: "cart_value" }),
+                            dom.createEl("dd", { textContent: "450" }),
+                            dom.createEl("dt", { textContent: "order date" }),
+                            dom.createEl("dd", { textContent: "05/21/20192" })
+                        ])
+                    ])
+                ]),
+                dom.createEl("div", { className: "details-row" }, [
+                    dom.createEl("div", {}, [
+                        dom.createEl("div", { className: "regular-text", textContent: "Last pages" }),
+                        dom.createEl("dl", { className: "definitions-list" }, [
+                            dom.createEl("dt", { textContent: "LiveChat sdsd" }),
+                            dom.createEl("dd", { textContent: "livechat.com/sdfsdf/sadfs" }),
+                            dom.createEl("dt", { textContent: "LiveChat - Tour" }),
+                            dom.createEl("dd", { textContent: "https://www.livechatinc.com/tour" }),
+                            dom.createEl("dt", { textContent: "LiveChat - Homepage" }),
+                            dom.createEl("dd", { textContent: "https://www.livechatinc.com/2" })
+                        ])
+                    ])
+                ]),
+                dom.createEl("div", { className: "details-actions" }, [
+                    dom.createEl("a", { className: "details-action", textContent: "Edit visitor" }),
+                    dom.createEl("a", { className: "details-action details-action-destroy", textContent: "Ban visitor" })
+                ])
+            ])
+        ]);
     }
     dispose() {
         this.el.remove();
         this.el = null;
+    }
+    storeMapper(state) {
+        const chat = state.chatsByIds[this.props.chatId];
+        const customer = chat ? helpers.getChatRecipient(chat) : void 0;
+        return {
+            customer
+        };
     }
 }
 export class AvatarView {

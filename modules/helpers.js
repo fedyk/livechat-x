@@ -488,15 +488,16 @@ export function mergeMessages(target, ...sources) {
 /**
  * Get a user who participates in the chat(by default it is customer, but can be other agent)
  */
-export function getChatCustomer(chat) {
+export function getChatRecipient(chat) {
     if (chat.customerId && chat.users[chat.customerId]) {
         return chat.users[chat.customerId];
     }
     const users = Object.values(chat.users);
     // lookup for first present user
     for (let i = 0; i < users.length; i++) {
-        if (users[i].present) {
-            return users[i];
+        const user = users[i];
+        if (user.present) {
+            return user;
         }
     }
     // just return first user
