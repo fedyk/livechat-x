@@ -626,3 +626,16 @@ export function stringifyMessage(message) {
     }
     return "You should not see this";
 }
+export function stringifyGeolocation(geolocation) {
+    const parts = [];
+    if (geolocation.city) {
+        parts.push(geolocation.city);
+    }
+    if (geolocation.region) {
+        parts.push(geolocation.region);
+    }
+    if (geolocation.country) {
+        parts.push(geolocation.country);
+    }
+    return parts.join(', ');
+}

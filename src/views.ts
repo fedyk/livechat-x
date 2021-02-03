@@ -1,7 +1,7 @@
 import * as dom from "./dom.js";
 import * as helpers from "./helpers.js";
 import { $Store, State, Store } from "./store.js";
-import { Chat, ChatRoute, Customer, Message, MyProfile, RoutingStatus, User } from "./types.js";
+import { Chat, ChatRoute, Customer, Geolocation, Message, MyProfile, RoutingStatus, User, UserCustomer } from "./types.js";
 import { ReverseScroll } from "./reverse-scroll.js";
 import { $API, API } from "./api.js";
 import { getAccountsUrl } from "./config.js";
@@ -285,8 +285,8 @@ export class ChatsListItemView implements helpers.Disposable {
       this.itemAvatarEl = dom.createEl("div", { className: "chat-list-item-avatar" }, [
         (this.avatar = new AvatarView({
           size: 48,
-          alt: customer?.name ?? "Visitor",
-          src: customer?.avatar
+          alt: customer ? customer.name : "Visitor",
+          src: customer ? customer.avatar : void 0
         })).el
       ]),
       this.chatSummaryEl = dom.createEl("div", { className: "chat-summary", }, [
@@ -329,7 +329,7 @@ export class ChatsListItemView implements helpers.Disposable {
       const customer = helpers.getChatRecipient(props.chat)
       const lastMessage = helpers.getChatLastMessage(props.chat)
 
-      this.chatTitle.textContent = customer?.name ?? "Unnamed visitor"
+      this.chatTitle.textContent = customer ? customer.name : "Unnamed visitor"
 
       if (this.chatRoute === "queued") {
         this.chatSubtitle.textContent = `Waiting in a queue`
@@ -463,7 +463,7 @@ export class ChatView implements helpers.Disposable {
   chatId: string
   el: Element
   chat: ChatFeedView
-  details: DetailsView
+  details: CustomerDetailsView
   api: API
   abort: AbortController
 
@@ -473,7 +473,7 @@ export class ChatView implements helpers.Disposable {
     this.chatId = props.chatId
     this.el = dom.createEl("div", { className: "chat-container" }, [
       (this.chat = new ChatFeedView({ chatId: props.chatId })).el,
-      (this.details = new DetailsView({ chatId: props.chatId })).el
+      (this.details = new CustomerDetailsView({ chatId: props.chatId })).el
     ])
 
     console.warn("uncomment this.details = ... above")
@@ -1108,17 +1108,26 @@ interface DetailsViewProps {
 }
 
 interface DetailsViewConnProps {
-  customer: User | void
+  user: User | void
 }
 
-export class DetailsView implements helpers.Disposable {
+export class CustomerDetailsView implements helpers.Disposable {
   el: HTMLDivElement
   detailsAvatar: HTMLDivElement
+  avatar?: AvatarView
+  name: HTMLDivElement
+  email: HTMLDivElement
+  location: HTMLDivElement
+  locationRow: HTMLDivElement
+  ipRow: HTMLDivElement
+  ip: HTMLDivElement
   connProps: DetailsViewConnProps
+  storeListener: helpers.Listener
 
   constructor(
     protected props: DetailsViewProps,
-    protected store = $Store()
+    protected store = $Store(),
+    protected lazyConnect = $LazyConnect()
   ) {
     this.connProps = this.storeMapper(this.store.getState())
     this.el = dom.createEl("div", { className: "details" }, [
@@ -1135,31 +1144,33 @@ export class DetailsView implements helpers.Disposable {
         dom.createEl("div", { className: "details-row" }, [
           this.detailsAvatar = dom.createEl("div", { className: "details-avatar" }),
           dom.createEl("div", { className: "details-basic" }, [
-            dom.createEl("div", { className: "text-primary", textContent: this.connProps.customer ? this.connProps.customer.name : "" }),
-            dom.createEl("div", { className: "text-muted", textContent: this.connProps.customer ? this.connProps.customer.name : "" })
+            this.name = dom.createEl("div", { className: "text-primary", textContent: this.connProps.user ? this.connProps.user.name : "" }),
+            this.email = dom.createEl("div", { className: "text-muted", textContent: this.connProps.user ? this.connProps.user.email : "" })
           ])
         ]),
 
-        dom.createEl("div", { className: "details-row" }, [
-          dom.createEl("div", { className: "details-icon", innerHTML: `
+        this.locationRow = dom.createEl("div", { className: "details-row" }, [
+          dom.createEl("div", {
+            className: "details-icon", innerHTML: `
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-geo-alt" viewBox="0 0 16 16">
               <path fill-rule="evenodd" d="M12.166 8.94C12.696 7.867 13 6.862 13 6A5 5 0 0 0 3 6c0 .862.305 1.867.834 2.94.524 1.062 1.234 2.12 1.96 3.07A31.481 31.481 0 0 0 8 14.58l.208-.22a31.493 31.493 0 0 0 1.998-2.35c.726-.95 1.436-2.008 1.96-3.07zM8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10z" />
               <path fill-rule="evenodd" d="M8 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 1a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
             </svg>
           `}),
-          dom.createEl("div", { className: "text-primary", textContent: "Lviv, Ukraine" })
+          this.location = dom.createEl("div", { className: "text-primary", textContent: "Lviv, Ukraine" })
         ]),
-        
-        dom.createEl("div", { className: "details-row" }, [
-          dom.createEl("div", { className: "details-icon", innerHTML: `
+
+        this.ipRow = dom.createEl("div", { className: "details-row" }, [
+          dom.createEl("div", {
+            className: "details-icon", innerHTML: `
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-wifi" viewBox="0 0 16 16">
               <path d="M15.385 6.115a.485.485 0 0 0-.048-.736A12.443 12.443 0 0 0 8 3 12.44 12.44 0 0 0 .663 5.379a.485.485 0 0 0-.048.736.518.518 0 0 0 .668.05A11.448 11.448 0 0 1 8 4c2.507 0 4.827.802 6.717 2.164.204.148.489.13.668-.049z" />
               <path d="M13.229 8.271c.216-.216.194-.578-.063-.745A9.456 9.456 0 0 0 8 6c-1.905 0-3.68.56-5.166 1.526a.48.48 0 0 0-.063.745.525.525 0 0 0 .652.065A8.46 8.46 0 0 1 8 7a8.46 8.46 0 0 1 4.577 1.336c.205.132.48.108.652-.065zm-2.183 2.183c.226-.226.185-.605-.1-.75A6.472 6.472 0 0 0 8 9c-1.06 0-2.062.254-2.946.704-.285.145-.326.524-.1.75l.015.015c.16.16.408.19.611.09A5.478 5.478 0 0 1 8 10c.868 0 1.69.201 2.42.56.203.1.45.07.611-.091l.015-.015zM9.06 12.44c.196-.196.198-.52-.04-.66A1.99 1.99 0 0 0 8 11.5a1.99 1.99 0 0 0-1.02.28c-.238.14-.236.464-.04.66l.706.706a.5.5 0 0 0 .708 0l.707-.707z" />
             </svg>
           `}),
-          dom.createEl("div", { className: "text-primary", textContent: "132.234.543.2" })
+          this.ip = dom.createEl("div", { className: "text-primary", textContent: "132.234.543.2" })
         ]),
-        
+
         dom.createEl("div", { className: "details-row" }, [
           dom.createEl("dl", { className: "definitions-list" }, [
             dom.createEl("dt", { textContent: "Referrer" }),
@@ -1171,7 +1182,6 @@ export class DetailsView implements helpers.Disposable {
           ])
         ]),
 
-        
         dom.createEl("div", { className: "details-row" }, [
           dom.createEl("div", {}, [
             dom.createEl("div", { className: "regular-text", textContent: "Session fields" }),
@@ -1185,7 +1195,7 @@ export class DetailsView implements helpers.Disposable {
             ])
           ])
         ]),
-        
+
         dom.createEl("div", { className: "details-row" }, [
           dom.createEl("div", {}, [
             dom.createEl("div", { className: "regular-text", textContent: "Last pages" }),
@@ -1206,19 +1216,60 @@ export class DetailsView implements helpers.Disposable {
         ])
       ])
     ])
+
+    this.storeListener = lazyConnect.connect(s => this.storeMapper(s), p => this.render(p))
   }
 
   dispose() {
     this.el.remove()
-    this.el = null!
+    this.avatar?.dispose()
+    this.storeListener.unbind()
   }
 
   protected storeMapper(state: State): DetailsViewConnProps {
     const chat = state.chatsByIds[this.props.chatId]
     const customer = chat ? helpers.getChatRecipient(chat) : void 0
 
-    return {
-      customer
+    return { user: customer }
+  }
+
+  protected render(props: DetailsViewConnProps) {
+    const user = props.user
+    const lastVisit = user && user.type === "customer" ? user.lastVisit : void 0
+    const geolocation = lastVisit ? lastVisit.geolocation : void 0
+
+    this.name.textContent = user ? user.name : "Unnamed customer"
+    this.email.textContent = user ? user.email : "-"
+    this.location.textContent = geolocation ? helpers.stringifyGeolocation(geolocation) : "Mars 🛸"  
+    this.ip.textContent = lastVisit ? lastVisit.ip : "127.0.0.1"
+
+    // show or hide row
+    dom.toggleEl(this.locationRow, Boolean(geolocation))
+    dom.toggleEl(this.ipRow, Boolean(lastVisit))
+
+    this.renderAvatar(user)
+  }
+
+  protected renderAvatar(user: User | void) {
+    dom.toggleEl(this.detailsAvatar, Boolean(user))
+
+    if (!user) {
+      this.avatar?.dispose()
+    }
+    else {
+      if (!this.avatar) {
+        this.avatar = new AvatarView({
+          size: 48,
+          alt: user.name,
+          src: user.avatar
+        })
+
+        this.detailsAvatar.append(this.avatar.el)
+      }
+      else {
+        this.avatar.setAlt(user.name)
+        this.avatar.setSrc(user.avatar)
+      }
     }
   }
 }
@@ -1274,9 +1325,19 @@ export class AvatarView implements helpers.Disposable {
     this.props.alt === alt
   }
 
-  setSrc(src: string) {
-    if (this.props.src === src) return // no changes
-    if (this.img) this.img.src = src
+  setSrc(src?: string) {
+    if (this.props.src === src) {
+      return // no changes
+    }
+
+    if (this.img && src) {
+      this.img.src = src
+    }
+
+    /**
+     * @todo handle case when src has changed to empty
+     */
+    
     this.props.src = src
   }
 

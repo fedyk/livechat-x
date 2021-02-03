@@ -1,4 +1,4 @@
-import { Chat, Thread, ChatRoute, Message, SneakPeek, SneakPeekMessage, Customer, User } from "./types"
+import { Chat, Thread, ChatRoute, Message, SneakPeek, SneakPeekMessage, Customer, User, Geolocation } from "./types"
 
 export interface Disposable {
   dispose(): void
@@ -837,4 +837,22 @@ export function stringifyMessage(message: Message) {
   }
 
   return "You should not see this"
+}
+
+export function stringifyGeolocation(geolocation: Geolocation) {
+  const parts: string[] = []
+
+  if (geolocation.city) {
+    parts.push(geolocation.city)
+  }
+
+  if (geolocation.region) {
+    parts.push(geolocation.region)
+  }
+
+  if (geolocation.country) {
+    parts.push(geolocation.country);
+  }
+
+  return parts.join(', ');
 }

@@ -7,9 +7,11 @@ export class LazyConnect implements Disposable {
   protected prevState?: State
   protected animationFrameId?: number
   protected lazyListeners: Array<(state: State) => void>
+  protected isDisposed: boolean
 
   constructor(protected store: Store) {
     this.lazyListeners = []
+    this.isDisposed = false
     this.digest()
   }
 
@@ -19,6 +21,8 @@ export class LazyConnect implements Disposable {
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId)
     }
+
+    this.isDisposed = true
   }
 
   /**
@@ -32,7 +36,12 @@ export class LazyConnect implements Disposable {
    * connection.unbind()
    */
   connect<T = {}>(mapStateToProps: (state: State) => T, connectListener: (data: T) => void): Listener {
+    if (this.isDisposed === true) {
+      throw new Error("Can't connect to disposed instance of LazyConnect")
+    }
+
     let lastMappedData: T | void = void 0;
+
     const unbind = () => {
       this.lazyListeners = this.lazyListeners.filter(v => v !== lazyListener)
     }
@@ -48,6 +57,9 @@ export class LazyConnect implements Disposable {
     }
 
     this.lazyListeners.push(lazyListener)
+
+    // first emit
+    lazyListener(this.store.getState())
 
     return { unbind }
   }

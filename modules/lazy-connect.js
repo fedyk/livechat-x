@@ -4,6 +4,7 @@ export class LazyConnect {
     constructor(store) {
         this.store = store;
         this.lazyListeners = [];
+        this.isDisposed = false;
         this.digest();
     }
     dispose() {
@@ -11,6 +12,7 @@ export class LazyConnect {
         if (this.animationFrameId) {
             cancelAnimationFrame(this.animationFrameId);
         }
+        this.isDisposed = true;
     }
     /**
      * @example
@@ -23,6 +25,9 @@ export class LazyConnect {
      * connection.unbind()
      */
     connect(mapStateToProps, connectListener) {
+        if (this.isDisposed === true) {
+            throw new Error("Can't connect to disposed instance of LazyConnect");
+        }
         let lastMappedData = void 0;
         const unbind = () => {
             this.lazyListeners = this.lazyListeners.filter(v => v !== lazyListener);
@@ -35,6 +40,8 @@ export class LazyConnect {
             lastMappedData = nextMappedData;
         }
         this.lazyListeners.push(lazyListener);
+        // first emit
+        lazyListener(this.store.getState());
         return { unbind };
     }
     digest() {
