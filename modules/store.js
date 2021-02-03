@@ -13,6 +13,10 @@ export class Store {
         this.listeners = [];
         this.isDispatching = false;
     }
+    dispose() {
+        this.state = null;
+        this.listeners = [];
+    }
     setChats(chats) {
         return this.dispatch({
             type: "SET_CHATS",

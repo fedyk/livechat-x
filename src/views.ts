@@ -6,6 +6,7 @@ import { ReverseScroll } from "./reverse-scroll.js";
 import { $API, API } from "./api.js";
 import { getAccountsUrl } from "./config.js";
 import { $CharRouteManager } from "./chat-route-manager.js";
+import { $LazyConnect } from "./lazy-connect.js";
 
 export class GridView implements helpers.Disposable {
   el: Element
@@ -274,7 +275,8 @@ export class ChatsListItemView implements helpers.Disposable {
   constructor(
     protected props: ChatsListItemProps,
     protected store = $Store(),
-    protected charRouteManager = $CharRouteManager()
+    protected charRouteManager = $CharRouteManager(),
+    protected lazyConnect = $LazyConnect()
   ) {
     const connProps = this.storeMapper(this.store.getState())
     const customer = connProps.chat ? helpers.getChatRecipient(connProps.chat) : void 0
@@ -299,7 +301,7 @@ export class ChatsListItemView implements helpers.Disposable {
     this.clickListener = dom.addListener(this.el, "click", () => this.selectChat())
     this.chatRoute = this.charRouteManager.getCurrentChatRoute(props.chatId)
 
-    this.storeListener = store.connect<ChatsListItemConnectedProps>(
+    this.storeListener = lazyConnect.connect<ChatsListItemConnectedProps>(
       state => this.storeMapper(state),
       props => this.render(props)
     )
