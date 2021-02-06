@@ -798,7 +798,7 @@ export class CustomerDetailsView {
             </svg>
           `
                     }),
-                    this.location = dom.createEl("div", { className: "text-primary", textContent: "Lviv, Ukraine" })
+                    this.location = dom.createEl("div", { className: "text-primary", textContent: "..." })
                 ]),
                 this.ipRow = dom.createEl("div", { className: "details-row" }, [
                     dom.createEl("div", {
@@ -809,42 +809,21 @@ export class CustomerDetailsView {
             </svg>
           `
                     }),
-                    this.ip = dom.createEl("div", { className: "text-primary", textContent: "132.234.543.2" })
+                    this.ip = dom.createEl("div", { className: "text-primary", textContent: "..." })
                 ]),
-                dom.createEl("div", { className: "details-row" }, [
-                    dom.createEl("dl", { className: "definitions-list" }, [
-                        dom.createEl("dt", { textContent: "Referrer" }),
-                        dom.createEl("dd", { textContent: "http://www.google.com/" }),
-                        dom.createEl("dt", { textContent: "Browser" }),
-                        dom.createEl("dd", { textContent: "Chrome 47 on Windows 40" }),
-                        dom.createEl("dt", { textContent: "Total visits" }),
-                        dom.createEl("dd", { textContent: "12" })
-                    ])
+                this.generalInfoRow = dom.createEl("div", { className: "details-row" }, [
+                    this.generalInfoList = dom.createEl("dl", { className: "definitions-list" })
                 ]),
-                dom.createEl("div", { className: "details-row" }, [
+                this.sessionFieldsRow = dom.createEl("div", { className: "details-row" }, [
                     dom.createEl("div", {}, [
                         dom.createEl("div", { className: "regular-text", textContent: "Session fields" }),
-                        dom.createEl("dl", { className: "definitions-list" }, [
-                            dom.createEl("dt", { textContent: "username" }),
-                            dom.createEl("dd", { textContent: "@gsefs" }),
-                            dom.createEl("dt", { textContent: "cart_value" }),
-                            dom.createEl("dd", { textContent: "450" }),
-                            dom.createEl("dt", { textContent: "order date" }),
-                            dom.createEl("dd", { textContent: "05/21/20192" })
-                        ])
+                        this.sessionFieldsList = dom.createEl("dl", { className: "definitions-list" })
                     ])
                 ]),
-                dom.createEl("div", { className: "details-row" }, [
+                this.lastPagesRow = dom.createEl("div", { className: "details-row" }, [
                     dom.createEl("div", {}, [
                         dom.createEl("div", { className: "regular-text", textContent: "Last pages" }),
-                        dom.createEl("dl", { className: "definitions-list" }, [
-                            dom.createEl("dt", { textContent: "LiveChat sdsd" }),
-                            dom.createEl("dd", { textContent: "livechat.com/sdfsdf/sadfs" }),
-                            dom.createEl("dt", { textContent: "LiveChat - Tour" }),
-                            dom.createEl("dd", { textContent: "https://www.livechatinc.com/tour" }),
-                            dom.createEl("dt", { textContent: "LiveChat - Homepage" }),
-                            dom.createEl("dd", { textContent: "https://www.livechatinc.com/2" })
-                        ])
+                        this.lastPagesList = dom.createEl("dl", { className: "definitions-list" })
                     ])
                 ]),
                 dom.createEl("div", { className: "details-actions" }, [
@@ -868,6 +847,8 @@ export class CustomerDetailsView {
     render(props) {
         const user = props.user;
         const lastVisit = user && user.type === "customer" ? user.lastVisit : void 0;
+        const statistics = user && user.type === "customer" ? user.statistics : void 0;
+        const fields = user && user.type === "customer" ? user.fields : void 0;
         const geolocation = lastVisit ? lastVisit.geolocation : void 0;
         this.name.textContent = user ? user.name : "Unnamed customer";
         this.email.textContent = user ? user.email : "-";
@@ -877,6 +858,9 @@ export class CustomerDetailsView {
         dom.toggleEl(this.locationRow, Boolean(geolocation));
         dom.toggleEl(this.ipRow, Boolean(lastVisit));
         this.renderAvatar(user);
+        this.renderGeneralInfo(lastVisit, statistics);
+        this.renderSessionFields(fields);
+        this.renderLastPages(lastVisit?.lastPages);
     }
     renderAvatar(user) {
         dom.toggleEl(this.detailsAvatar, Boolean(user));
@@ -896,6 +880,48 @@ export class CustomerDetailsView {
                 this.avatar.setAlt(user.name);
                 this.avatar.setSrc(user.avatar);
             }
+        }
+    }
+    renderGeneralInfo(lastVisit, statistics) {
+        dom.toggleEl(this.generalInfoList, Boolean(lastVisit && statistics));
+        const data = [];
+        if (lastVisit?.referrer) {
+            data.push("Referrer", lastVisit.referrer);
+        }
+        if (lastVisit?.userAgent) {
+            data.push("Browser", lastVisit.userAgent);
+        }
+        if (statistics) {
+            data.push("Total visits", String(statistics.visitsCount));
+        }
+        this.renderList(this.generalInfoList, data);
+    }
+    renderSessionFields(fields) {
+        const data = (fields || []).reduce((prev, curr) => {
+            return prev.push(curr.name, curr.value), prev;
+        }, []);
+        dom.toggleEl(this.sessionFieldsRow, data.length > 0);
+        this.renderList(this.sessionFieldsList, data);
+    }
+    renderLastPages(lastPages) {
+        const data = (lastPages || []).reduce((prev, curr) => {
+            return prev.push(curr.title, curr.title), prev;
+        }, []);
+        dom.toggleEl(this.lastPagesRow, data.length > 0);
+        this.renderList(this.lastPagesList, data);
+    }
+    renderList(container, data) {
+        dom.selectAll(container)
+            .data(data, (d, i) => i)
+            .join(enter, update, exit);
+        function enter(enterNode, i) {
+            enterNode.append(dom.createEl(i % 2 ? "dd" : "dt", { textContent: enterNode.d }));
+        }
+        function update(updateNode) {
+            updateNode.textContent = dom.getDatum(updateNode) ?? "n/a";
+        }
+        function exit(exitNode) {
+            exitNode.remove();
         }
     }
 }

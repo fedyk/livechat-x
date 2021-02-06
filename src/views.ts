@@ -1,7 +1,7 @@
 import * as dom from "./dom.js";
 import * as helpers from "./helpers.js";
 import { $Store, State, Store } from "./store.js";
-import { Chat, ChatRoute, Customer, Geolocation, Message, MyProfile, RoutingStatus, User, UserCustomer } from "./types.js";
+import { Chat, ChatRoute, Customer, CustomerLastVisit, CustomerStatistics, Fields, Geolocation, Message, MyProfile, RoutingStatus, User, UserCustomer, VisitedPage } from "./types.js";
 import { ReverseScroll } from "./reverse-scroll.js";
 import { $API, API } from "./api.js";
 import { getAccountsUrl } from "./config.js";
@@ -1121,6 +1121,12 @@ export class CustomerDetailsView implements helpers.Disposable {
   locationRow: HTMLDivElement
   ipRow: HTMLDivElement
   ip: HTMLDivElement
+  generalInfoRow: HTMLDivElement
+  generalInfoList: HTMLDListElement
+  sessionFieldsRow: HTMLDivElement
+  sessionFieldsList: HTMLDListElement
+  lastPagesRow: HTMLDivElement
+  lastPagesList: HTMLDListElement
   connProps: DetailsViewConnProps
   storeListener: helpers.Listener
 
@@ -1157,7 +1163,7 @@ export class CustomerDetailsView implements helpers.Disposable {
               <path fill-rule="evenodd" d="M8 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 1a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
             </svg>
           `}),
-          this.location = dom.createEl("div", { className: "text-primary", textContent: "Lviv, Ukraine" })
+          this.location = dom.createEl("div", { className: "text-primary", textContent: "..." })
         ]),
 
         this.ipRow = dom.createEl("div", { className: "details-row" }, [
@@ -1168,45 +1174,24 @@ export class CustomerDetailsView implements helpers.Disposable {
               <path d="M13.229 8.271c.216-.216.194-.578-.063-.745A9.456 9.456 0 0 0 8 6c-1.905 0-3.68.56-5.166 1.526a.48.48 0 0 0-.063.745.525.525 0 0 0 .652.065A8.46 8.46 0 0 1 8 7a8.46 8.46 0 0 1 4.577 1.336c.205.132.48.108.652-.065zm-2.183 2.183c.226-.226.185-.605-.1-.75A6.472 6.472 0 0 0 8 9c-1.06 0-2.062.254-2.946.704-.285.145-.326.524-.1.75l.015.015c.16.16.408.19.611.09A5.478 5.478 0 0 1 8 10c.868 0 1.69.201 2.42.56.203.1.45.07.611-.091l.015-.015zM9.06 12.44c.196-.196.198-.52-.04-.66A1.99 1.99 0 0 0 8 11.5a1.99 1.99 0 0 0-1.02.28c-.238.14-.236.464-.04.66l.706.706a.5.5 0 0 0 .708 0l.707-.707z" />
             </svg>
           `}),
-          this.ip = dom.createEl("div", { className: "text-primary", textContent: "132.234.543.2" })
+          this.ip = dom.createEl("div", { className: "text-primary", textContent: "..." })
         ]),
 
-        dom.createEl("div", { className: "details-row" }, [
-          dom.createEl("dl", { className: "definitions-list" }, [
-            dom.createEl("dt", { textContent: "Referrer" }),
-            dom.createEl("dd", { textContent: "http://www.google.com/" }),
-            dom.createEl("dt", { textContent: "Browser" }),
-            dom.createEl("dd", { textContent: "Chrome 47 on Windows 40" }),
-            dom.createEl("dt", { textContent: "Total visits" }),
-            dom.createEl("dd", { textContent: "12" })
-          ])
+        this.generalInfoRow = dom.createEl("div", { className: "details-row" }, [
+          this.generalInfoList = dom.createEl("dl", { className: "definitions-list" })
         ]),
 
-        dom.createEl("div", { className: "details-row" }, [
+        this.sessionFieldsRow = dom.createEl("div", { className: "details-row" }, [
           dom.createEl("div", {}, [
             dom.createEl("div", { className: "regular-text", textContent: "Session fields" }),
-            dom.createEl("dl", { className: "definitions-list" }, [
-              dom.createEl("dt", { textContent: "username" }),
-              dom.createEl("dd", { textContent: "@gsefs" }),
-              dom.createEl("dt", { textContent: "cart_value" }),
-              dom.createEl("dd", { textContent: "450" }),
-              dom.createEl("dt", { textContent: "order date" }),
-              dom.createEl("dd", { textContent: "05/21/20192" })
-            ])
+            this.sessionFieldsList = dom.createEl("dl", { className: "definitions-list" })
           ])
         ]),
 
-        dom.createEl("div", { className: "details-row" }, [
+        this.lastPagesRow = dom.createEl("div", { className: "details-row" }, [
           dom.createEl("div", {}, [
             dom.createEl("div", { className: "regular-text", textContent: "Last pages" }),
-            dom.createEl("dl", { className: "definitions-list" }, [
-              dom.createEl("dt", { textContent: "LiveChat sdsd" }),
-              dom.createEl("dd", { textContent: "livechat.com/sdfsdf/sadfs" }),
-              dom.createEl("dt", { textContent: "LiveChat - Tour" }),
-              dom.createEl("dd", { textContent: "https://www.livechatinc.com/tour" }),
-              dom.createEl("dt", { textContent: "LiveChat - Homepage" }),
-              dom.createEl("dd", { textContent: "https://www.livechatinc.com/2" })
-            ])
+            this.lastPagesList = dom.createEl("dl", { className: "definitions-list" })
           ])
         ]),
 
@@ -1217,7 +1202,10 @@ export class CustomerDetailsView implements helpers.Disposable {
       ])
     ])
 
-    this.storeListener = lazyConnect.connect(s => this.storeMapper(s), p => this.render(p))
+    this.storeListener = lazyConnect.connect(
+      s => this.storeMapper(s),
+      p => this.render(p)
+    )
   }
 
   dispose() {
@@ -1236,11 +1224,13 @@ export class CustomerDetailsView implements helpers.Disposable {
   protected render(props: DetailsViewConnProps) {
     const user = props.user
     const lastVisit = user && user.type === "customer" ? user.lastVisit : void 0
+    const statistics = user && user.type === "customer" ? user.statistics : void 0
+    const fields = user && user.type === "customer" ? user.fields : void 0
     const geolocation = lastVisit ? lastVisit.geolocation : void 0
 
     this.name.textContent = user ? user.name : "Unnamed customer"
     this.email.textContent = user ? user.email : "-"
-    this.location.textContent = geolocation ? helpers.stringifyGeolocation(geolocation) : "Mars 🛸"  
+    this.location.textContent = geolocation ? helpers.stringifyGeolocation(geolocation) : "Mars 🛸"
     this.ip.textContent = lastVisit ? lastVisit.ip : "127.0.0.1"
 
     // show or hide row
@@ -1248,6 +1238,9 @@ export class CustomerDetailsView implements helpers.Disposable {
     dom.toggleEl(this.ipRow, Boolean(lastVisit))
 
     this.renderAvatar(user)
+    this.renderGeneralInfo(lastVisit, statistics)
+    this.renderSessionFields(fields)
+    this.renderLastPages(lastVisit?.lastPages)
   }
 
   protected renderAvatar(user: User | void) {
@@ -1270,6 +1263,62 @@ export class CustomerDetailsView implements helpers.Disposable {
         this.avatar.setAlt(user.name)
         this.avatar.setSrc(user.avatar)
       }
+    }
+  }
+
+  protected renderGeneralInfo(lastVisit?: CustomerLastVisit, statistics?: CustomerStatistics) {
+    dom.toggleEl(this.generalInfoList, Boolean(lastVisit && statistics))
+
+    const data: string[] = []
+
+    if (lastVisit?.referrer) {
+      data.push("Referrer", lastVisit.referrer)
+    }
+
+    if (lastVisit?.userAgent) {
+      data.push("Browser", lastVisit.userAgent)
+    }
+
+    if (statistics) {
+      data.push("Total visits", String(statistics.visitsCount))
+    }
+
+    this.renderList(this.generalInfoList, data)
+  }
+
+  protected renderSessionFields(fields?: Fields) {
+    const data = (fields || []).reduce<string[]>((prev, curr) => {
+      return prev.push(curr.name, curr.value), prev
+    }, [])
+
+    dom.toggleEl(this.sessionFieldsRow, data.length > 0)
+    this.renderList(this.sessionFieldsList, data)
+  }
+
+  protected renderLastPages(lastPages?: VisitedPage[]) {
+    const data = (lastPages || []).reduce<string[]>((prev, curr) => {
+      return prev.push(curr.title, curr.title), prev
+    }, [])
+
+    dom.toggleEl(this.lastPagesRow, data.length > 0)
+    this.renderList(this.lastPagesList, data)
+  }
+
+  protected renderList(container: HTMLElement, data: string[]) {
+    dom.selectAll(container)
+      .data(data, (d, i) => i)
+      .join(enter, update, exit)
+
+    function enter(enterNode: dom.EnterNode<string>, i: number) {
+      enterNode.append(dom.createEl(i % 2 ? "dd" : "dt", { textContent: enterNode.d }))
+    }
+
+    function update(updateNode: dom.ElementWithDatum<string>) {
+      updateNode.textContent = dom.getDatum(updateNode) ?? "n/a"
+    }
+
+    function exit(exitNode: HTMLElement) {
+      exitNode.remove()
     }
   }
 }
@@ -1337,7 +1386,7 @@ export class AvatarView implements helpers.Disposable {
     /**
      * @todo handle case when src has changed to empty
      */
-    
+
     this.props.src = src
   }
 
