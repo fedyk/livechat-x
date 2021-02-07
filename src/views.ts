@@ -705,7 +705,7 @@ interface ComposerViewProps {
 interface ComposerViewAction {
   id: string
   title: string
-  selected: boolean
+  visible: boolean
 }
 
 interface ComposerViewButton {
@@ -723,9 +723,10 @@ export class ComposerView implements helpers.Disposable {
   buttonsEl: HTMLDivElement
   listeners: helpers.Listeners
   chatRoute: ChatRoute | null
-  actionsVisible: boolean
-  actionsFilter: string
+  showActions: boolean
+  selectedActionsIndex: number
   actions: Array<ComposerViewAction>
+  filteredActions: Array<ComposerViewAction>
   buttons: Array<ComposerViewButton>
 
   constructor(
@@ -736,17 +737,36 @@ export class ComposerView implements helpers.Disposable {
   ) {
     this.chatRoute = null
 
-    this.actionsVisible = false
-    this.actionsFilter = ""
-    this.actions = [{
+    this.showActions = false
+    this.selectedActionsIndex = 0
+    this.actions = this.filteredActions = [{
       id: "/transfer",
       title: "Transfer to..",
+      visible: true
     }, {
       id: "/close",
       title: "Close chat",
+      visible: true
     }, {
       id: "/note",
-      title: "Add private note"
+      title: "Add private note",
+      visible: true
+    }, {
+      id: "/note2",
+      title: "Add private note",
+      visible: true
+    }, {
+      id: "/note3",
+      title: "Add private note",
+      visible: true
+    }, {
+      id: "/note4",
+      title: "Add private note",
+      visible: true
+    }, {
+      id: "/note5",
+      title: "Add private note",
+      visible: true
     }]
 
     this.buttons = [{
@@ -770,9 +790,9 @@ export class ComposerView implements helpers.Disposable {
 
     this.listeners = new helpers.Listeners()
 
-    this.listeners.register(
-      dom.addListener(this.input, "keyup", (event) => this.handleKeyUp(event)),
-    )
+    this.listeners.register(dom.addListener(this.input, "keyup", (event) => this.handleKeyUp(event)))
+    this.listeners.register(dom.addListener(this.input, "keydown", (event) => this.handleKeyDown(event)))
+    this.listeners.register(dom.addListener(this.input, "input", (event) => this.handleInputChange(event)))
 
     this.listeners.register(charRouteManager.subscribe(props.chatId, chatRoute => {
       this.chatRoute = chatRoute, this.render()
@@ -785,25 +805,63 @@ export class ComposerView implements helpers.Disposable {
   }
 
   protected handleKeyUp(event: KeyboardEvent) {
-    // this.inputSelectionStart = this.input.selectionStart
-    // this.inputSelectionEnd = this.input.selectionEnd
-    // this.inputSelectionDirection = this.input.selectionDirection
-
-    // Do nothing if event already handled
     if (event.defaultPrevented) {
-      return
+      return // Do nothing if event already handled
     }
 
     if (event.code === "Enter") {
       return this.handleSend()
     }
+  }
 
-    this.actionsFilter = this.input.selectionStart != null ? this.input.value.substring(0, this.input.selectionStart) : ""
-    this.actionsVisible = this.input.value[0] === "/" && /\s/.test(this.actionsFilter) === false
+  protected handleKeyDown(event: KeyboardEvent) {
+    if (this.showActions && (event.code === "ArrowDown" || event.code === "ArrowUp")) {
+      const direction = event.code === "ArrowDown" ? 1 : -1
+
+      event.preventDefault()
+
+      if (this.filteredActions[this.selectedActionsIndex + direction]) {
+        this.selectedActionsIndex = this.selectedActionsIndex + direction
+      }
+      else if (event.code === "ArrowDown") {
+        this.selectedActionsIndex = 0
+      }
+      else {
+        this.selectedActionsIndex = this.filteredActions.length - 1
+      }
+    }
 
     this.render()
+  }
 
-    console.log(event.code)
+  protected handleInputChange(event: Event) {
+    const selectionStart = Math.max(0, this.input.selectionStart!, this.input.selectionEnd!)
+    const actionsFilter = this.input.value.substring(0, selectionStart)
+
+    // filter out actions
+    if (actionsFilter.length > 0) {
+      this.filteredActions = this.actions.filter(action => action.visible = action.id.indexOf(actionsFilter) === 0)
+    }
+    else {
+      this.filteredActions = this.actions
+    }
+
+    if (this.input.value[0] === "/" && /\s/.test(actionsFilter) === false && this.filteredActions.length > 0) {
+      if (this.showActions === false) {
+        this.selectedActionsIndex = 0
+      }
+
+      this.showActions = true
+
+      if (!this.filteredActions[this.selectedActionsIndex]) {
+        this.selectedActionsIndex = 0
+      }
+    }
+    else {
+      this.showActions = false
+    }
+
+    this.render()
   }
 
   protected handleSend() {
@@ -821,27 +879,37 @@ export class ComposerView implements helpers.Disposable {
   }
 
   protected render() {
-    this.renderButtons()
     this.renderActions()
+    this.renderComposer()
+    this.renderButtons()
   }
 
   protected renderActions() {
-    dom.toggleEl(this.actionsEl, this.actionsVisible)
+    dom.toggleEl(this.actionsEl, this.showActions)
     dom.selectAll(this.actionsEl)
-      .data(this.actions, action => action?.id)
+      .data(this.filteredActions, action => action?.id)
       .join(
         enter => enter.append(dom.createEl("div", { className: "composer-action" }, [
           dom.createEl("div", { textContent: enter.d.title }),
           dom.createEl("div", { className: "text-small", textContent: enter.d.id })
         ])),
-        update => dom.toggleEl(update, dom.getDatum(update)?.id.indexOf(this.actionsFilter) === 0),
+        (update, i) => {
+          dom.toggleEl(update, dom.getDatum(update)?.visible)
+          update.classList.toggle("active", this.selectedActionsIndex === i)
+        },
         exit => exit.remove()
       )
   }
 
+  protected renderComposer() {
+    dom.toggleEl(this.inputContainer, this.chatRoute === "my" || this.chatRoute === "supervised")
+    // tbd
+  }
+
   protected renderButtons() {
+    dom.toggleEl(this.buttonsEl, this.chatRoute !== "my" && this.chatRoute !== "supervised")
     dom.selectAll(this.buttonsEl)
-      .data(this.buttons, (button, i) => i)
+      .data(this.buttons, button => button?.id)
       .join(
         enter => enter.append(dom.createEl("button", {
           className: "composer-button",

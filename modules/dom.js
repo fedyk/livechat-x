@@ -148,7 +148,7 @@ export class DataBinder {
         for (let i = 0; i < this.updateGroup.length; i++) {
             const node = this.updateGroup[i];
             if (node) {
-                cb(this.updateGroup[i]);
+                cb(this.updateGroup[i], i);
             }
         }
         return this;
@@ -157,7 +157,7 @@ export class DataBinder {
         for (let i = 0; i < this.exitGroup.length; i++) {
             const node = this.exitGroup[i];
             if (node) {
-                cb(this.exitGroup[i]);
+                cb(this.exitGroup[i], i);
             }
         }
         return this;

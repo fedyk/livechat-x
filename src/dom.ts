@@ -155,9 +155,9 @@ export class DataBinder<T> {
   }
 
   join(
-    enter: (node: EnterNode<T>, i: number) => void | void,
-    update: (node: ElementWithDatum<T>) => void | void,
-    exit: (node: ElementWithDatum<T>) => void | void
+    enter: (node: EnterNode<T>, index: number) => void | void,
+    update: (node: ElementWithDatum<T>, index: number) => void | void,
+    exit: (node: ElementWithDatum<T>, index: number) => void | void
   ) {
     if (typeof enter === "function") {
       this.enter(enter)
@@ -193,7 +193,7 @@ export class DataBinder<T> {
     }
   }
 
-  protected enter(cb: (node: EnterNode<T>, i: number) => void) {
+  protected enter(cb: (node: EnterNode<T>, index: number) => void) {
     for (let i = 0; i < this.enterGroup.length; i++) {
       const node = this.enterGroup[i]
 
@@ -205,24 +205,24 @@ export class DataBinder<T> {
     return this
   }
 
-  protected update(cb: (node: ElementWithDatum<T>) => void) {
+  protected update(cb: (node: ElementWithDatum<T>, index: number) => void) {
     for (let i = 0; i < this.updateGroup.length; i++) {
       const node = this.updateGroup[i]
 
       if (node) {
-        cb(this.updateGroup[i])
+        cb(this.updateGroup[i], i)
       }
     }
 
     return this
   }
 
-  protected exit(cb: (node: ElementWithDatum<T>) => void) {
+  protected exit(cb: (node: ElementWithDatum<T>, index: number) => void) {
     for (let i = 0; i < this.exitGroup.length; i++) {
       const node = this.exitGroup[i]
 
       if (node) {
-        cb(this.exitGroup[i])
+        cb(this.exitGroup[i], i)
       }
     }
 
@@ -337,3 +337,5 @@ export function toggleEl(el: Element, visible?: boolean) {
     el.classList.add("hidden")
   }
 }
+
+
