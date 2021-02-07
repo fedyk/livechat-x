@@ -8,7 +8,7 @@
   --active-color: #0d6efd;
   --tint-color: #007aff;
   --border-radius: 6px;
-  --header-height: 58px
+  --header-height: 58px;
 }
 
 @media (prefers-color-scheme: dark) {
