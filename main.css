@@ -457,14 +457,13 @@ button {
 
 .composer {
   position: relative;
-  border-top: 1px solid var(--border-color);
-  /* background-color: var(--active-bg-color); */
   flex: 0 0 48px;
 }
 
 .composer-input-container {
   position: relative;
   height: 100%;
+  border-top: 1px solid var(--border-color);
 }
 
 input.composer-input {
@@ -534,8 +533,9 @@ button.composer-send:focus {
   left: 0;
   right: 0;
   bottom: 100%;
-  background-color: var(--main-bg-color);
   color: var(--main-text-color);
+  background-color: var(--main-bg-color);
+  border-top: 1px solid var(--border-color);
 }
 
 .composer-action {
@@ -544,7 +544,7 @@ button.composer-send:focus {
 }
 
 .composer-action.active {
-  background-color: var(--active-bg-color);
+  background-color: var(--active-color);
 }
 
 .messages {

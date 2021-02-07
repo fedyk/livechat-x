@@ -702,14 +702,31 @@ interface ComposerViewProps {
   chatId: string
 }
 
+interface ComposerViewAction {
+  id: string
+  title: string
+  selected: boolean
+}
+
+interface ComposerViewButton {
+  id: string
+  title: string
+  handler(): void
+}
+
 export class ComposerView implements helpers.Disposable {
   el: HTMLDivElement
-  actions: Element
+  actionsEl: HTMLDivElement
   inputContainer: Element
   input: HTMLInputElement
   submit: Element
-  buttons: Element
+  buttonsEl: HTMLDivElement
   listeners: helpers.Listeners
+  chatRoute: ChatRoute | null
+  actionsVisible: boolean
+  actionsFilter: string
+  actions: Array<ComposerViewAction>
+  buttons: Array<ComposerViewButton>
 
   constructor(
     protected props: ComposerViewProps,
@@ -717,29 +734,48 @@ export class ComposerView implements helpers.Disposable {
     protected store = $Store(),
     protected charRouteManager = $CharRouteManager(),
   ) {
+    this.chatRoute = null
+
+    this.actionsVisible = false
+    this.actionsFilter = ""
+    this.actions = [{
+      id: "/transfer",
+      title: "Transfer to..",
+    }, {
+      id: "/close",
+      title: "Close chat",
+    }, {
+      id: "/note",
+      title: "Add private note"
+    }]
+
+    this.buttons = [{
+      id: "start-chat",
+      title: "Assign to me",
+      handler: () => this.api.startChat(this.props.chatId)
+    }]
+
     this.el = dom.createEl("div", { className: "composer" }, [
-      this.actions = dom.createEl("div", { className: "composer-actions" }, [
-        // dom.createEl("div", { className: "composer-action active", textContent: "/transfer" }),
-        // dom.createEl("div", { className: "composer-action", textContent: "/close" }),
-        // dom.createEl("div", { className: "composer-action", textContent: "/note" }),
-      ]),
+      this.actionsEl = dom.createEl("div", { className: "composer-actions" }),
       this.inputContainer = dom.createEl("div", { className: "composer-input-container" }, [
         this.input = dom.createEl("input", { className: "composer-input", placeholder: "Message", autofocus: true }),
         this.submit = dom.createEl("button", { className: "composer-send" }, [
           createIconEl({ name: "arrow-right-circle", size: "1.5em" })
         ])
       ]),
-      this.buttons = dom.createEl("div", { className: "composer-buttons" }, [
+      this.buttonsEl = dom.createEl("div", { className: "composer-buttons" }, [
         dom.createEl("button", { className: "composer-button" }, ["Assign to me"])
       ])
     ])
 
-    this.listeners = new helpers.Listeners(
+    this.listeners = new helpers.Listeners()
+
+    this.listeners.register(
       dom.addListener(this.input, "keyup", (event) => this.handleKeyUp(event)),
     )
 
     this.listeners.register(charRouteManager.subscribe(props.chatId, chatRoute => {
-      this.renderChatRouter(chatRoute)
+      this.chatRoute = chatRoute, this.render()
     }))
   }
 
@@ -749,13 +785,25 @@ export class ComposerView implements helpers.Disposable {
   }
 
   protected handleKeyUp(event: KeyboardEvent) {
+    // this.inputSelectionStart = this.input.selectionStart
+    // this.inputSelectionEnd = this.input.selectionEnd
+    // this.inputSelectionDirection = this.input.selectionDirection
+
+    // Do nothing if event already handled
     if (event.defaultPrevented) {
-      return // Do nothing if event already handled
+      return
     }
 
     if (event.code === "Enter") {
       return this.handleSend()
     }
+
+    this.actionsFilter = this.input.selectionStart != null ? this.input.value.substring(0, this.input.selectionStart) : ""
+    this.actionsVisible = this.input.value[0] === "/" && /\s/.test(this.actionsFilter) === false
+
+    this.render()
+
+    console.log(event.code)
   }
 
   protected handleSend() {
@@ -772,63 +820,40 @@ export class ComposerView implements helpers.Disposable {
     this.input.value = ""
   }
 
-  protected renderChatRouter(chatRoute: ChatRoute) {
-    if (chatRoute === "queued" || chatRoute === "unassigned" || chatRoute === "pinned") {
-      dom.toggleEl(this.actions, false)
-      dom.toggleEl(this.inputContainer, false)
-      dom.toggleEl(this.buttons, true)
-      this.renderActionsButtons([{
-        title: "Assign to me",
-        handler: () => this.api.startChat(this.props.chatId)
-      }])
-    }
-    else if (chatRoute === "closed") {
-      console.error(new Error("TODO"))
-    }
-    else if (chatRoute === "other") {
-      console.error(new Error("TODO"))
-    }
-    else if (chatRoute === "supervised") {
-      console.error(new Error("TODO"))
-    }
-    else if (chatRoute === "my") {
-      dom.toggleEl(this.actions, false)
-      dom.toggleEl(this.inputContainer, true)
-      dom.toggleEl(this.buttons, false)
-      this.renderActionsButtons([])
-    }
+  protected render() {
+    this.renderButtons()
+    this.renderActions()
   }
 
-  protected renderActionsButtons<T extends { title: string; handler: () => void }>(actions: T[]) {
-    dom.selectAll(this.buttons)
-      .data(actions, (d, i) => i)
+  protected renderActions() {
+    dom.toggleEl(this.actionsEl, this.actionsVisible)
+    dom.selectAll(this.actionsEl)
+      .data(this.actions, action => action?.id)
       .join(
-        enter,
-        update,
-        exit
+        enter => enter.append(dom.createEl("div", { className: "composer-action" }, [
+          dom.createEl("div", { textContent: enter.d.title }),
+          dom.createEl("div", { className: "text-small", textContent: enter.d.id })
+        ])),
+        update => dom.toggleEl(update, dom.getDatum(update)?.id.indexOf(this.actionsFilter) === 0),
+        exit => exit.remove()
       )
+  }
 
-    function enter(enterNode: dom.EnterNode<T>) {
-      enterNode.append(dom.createEl("button", {
-        className: "composer-button",
-        textContent: enterNode.d.title,
-        onclick: enterNode.d.handler
-      }))
-    }
-
-    function update(updateNode: dom.ElementWithDatum<T>) {
-      const d = dom.getDatum(updateNode)
-
-      if (d) {
-        updateNode.textContent = d.title
-        updateNode.onclick = d.handler
-      }
-    }
-
-    function exit(exitNode: dom.ElementWithDatum<T>) {
-      exitNode.onclick = null
-      exitNode.remove()
-    }
+  protected renderButtons() {
+    dom.selectAll(this.buttonsEl)
+      .data(this.buttons, (button, i) => i)
+      .join(
+        enter => enter.append(dom.createEl("button", {
+          className: "composer-button",
+          textContent: enter.d.title,
+          onclick: enter.d.handler
+        })),
+        update => update,
+        exit => {
+          exit.onclick = null
+          exit.remove()
+        }
+      )
   }
 }
 
@@ -1149,7 +1174,7 @@ export class CustomerDetailsView implements helpers.Disposable {
       dom.createEl("div", { className: "details-body" }, [
         dom.createEl("div", { className: "details-row" }, [
           this.detailsAvatar = dom.createEl("div", { className: "details-avatar" }),
-          dom.createEl("div",{}, [
+          dom.createEl("div", {}, [
             this.name = dom.createEl("div", { className: "text-primary", textContent: this.connProps.user ? this.connProps.user.name : "" }),
             this.email = dom.createEl("div", { className: "text-small", textContent: this.connProps.user ? this.connProps.user.email : "" })
           ])
@@ -1182,14 +1207,14 @@ export class CustomerDetailsView implements helpers.Disposable {
         ]),
 
         this.sessionFieldsRow = dom.createEl("div", { className: "details-row" }, [
-          dom.createEl("div", { }, [
+          dom.createEl("div", {}, [
             dom.createEl("div", { className: "regular-text py-2", textContent: "Session Fields" }),
             this.sessionFieldsList = dom.createEl("dl", { className: "definitions-list" })
           ])
         ]),
 
         this.lastPagesRow = dom.createEl("div", { className: "details-row" }, [
-          dom.createEl("div", { }, [
+          dom.createEl("div", {}, [
             dom.createEl("div", { className: "regular-text py-2", textContent: "Last Pages" }),
             this.lastPagesList = dom.createEl("dl", { className: "definitions-list" })
           ])
