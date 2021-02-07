@@ -1140,7 +1140,7 @@ export class CustomerDetailsView implements helpers.Disposable {
       dom.createEl("div", { className: "details-header" }, [
         dom.createEl("div", { className: "details-title", textContent: "Details" }),
         dom.createEl("button", {
-          className: "details-close", innerHTML: `
+          className: "details-close hidden", innerHTML: `
           <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" class="bi bi-x" viewBox="0 0 16 16">
             <path fill-rule="evenodd" d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z" />
           </svg>
@@ -1149,9 +1149,9 @@ export class CustomerDetailsView implements helpers.Disposable {
       dom.createEl("div", { className: "details-body" }, [
         dom.createEl("div", { className: "details-row" }, [
           this.detailsAvatar = dom.createEl("div", { className: "details-avatar" }),
-          dom.createEl("div", { className: "details-basic" }, [
+          dom.createEl("div",{}, [
             this.name = dom.createEl("div", { className: "text-primary", textContent: this.connProps.user ? this.connProps.user.name : "" }),
-            this.email = dom.createEl("div", { className: "text-muted", textContent: this.connProps.user ? this.connProps.user.email : "" })
+            this.email = dom.createEl("div", { className: "text-small", textContent: this.connProps.user ? this.connProps.user.email : "" })
           ])
         ]),
 
@@ -1182,20 +1182,23 @@ export class CustomerDetailsView implements helpers.Disposable {
         ]),
 
         this.sessionFieldsRow = dom.createEl("div", { className: "details-row" }, [
-          dom.createEl("div", {}, [
-            dom.createEl("div", { className: "regular-text", textContent: "Session fields" }),
+          dom.createEl("div", { }, [
+            dom.createEl("div", { className: "regular-text py-2", textContent: "Session Fields" }),
             this.sessionFieldsList = dom.createEl("dl", { className: "definitions-list" })
           ])
         ]),
 
         this.lastPagesRow = dom.createEl("div", { className: "details-row" }, [
-          dom.createEl("div", {}, [
-            dom.createEl("div", { className: "regular-text", textContent: "Last pages" }),
+          dom.createEl("div", { }, [
+            dom.createEl("div", { className: "regular-text py-2", textContent: "Last Pages" }),
             this.lastPagesList = dom.createEl("dl", { className: "definitions-list" })
           ])
         ]),
 
-        dom.createEl("div", { className: "details-actions" }, [
+        /**
+         * @todo add handlers
+         */
+        dom.createEl("div", { className: "details-actions hidden" }, [
           dom.createEl("a", { className: "details-action", textContent: "Edit visitor" }),
           dom.createEl("a", { className: "details-action details-action-destroy", textContent: "Ban visitor" })
         ])

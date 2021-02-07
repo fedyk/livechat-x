@@ -9,6 +9,7 @@
   --active-color: #0d6efd;
   --tint-color: #007aff;
   --border-radius: 6px;
+  --header-height: 58px
 }
 
 @media (prefers-color-scheme: dark) {
@@ -71,6 +72,10 @@ button {
   color: var(--second-text-color);
 }
 
+.text-small {
+  font-size: 0.85rem !important;
+}
+
 .hidden {
   display: none !important;
 }
@@ -93,6 +98,10 @@ button {
 
 .py-2 {
   padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+}
+
+.pb-2 {
   padding-bottom: 0.5rem !important;
 }
 
@@ -428,7 +437,7 @@ button {
 }
 
 .chat-header {
-  flex: 1 0 58px;
+  flex: 1 0 var(--header-height);
   flex-grow: 0;
   display: flex;
   flex-direction: row;
@@ -804,8 +813,8 @@ svg.message-meta-check2-all {
   align-items: center;
   justify-content: space-between;
   padding: 0 14px;
-  min-height: 54px;
   border-bottom: 1px solid var(--border-color);
+  min-height: var(--header-height);
 }
 
 .details-title {
@@ -837,8 +846,7 @@ svg.message-meta-check2-all {
   position: relative;
   display: flex;
   flex-direction: row;
-  padding: 0 14px;
-  min-height: 47px;
+  padding: 0.5rem 14px;
   align-items: center;
   border-bottom: 1px solid var(--border-color);
 }
@@ -856,16 +864,21 @@ svg.message-meta-check2-all {
 
 .definitions-list {
   padding: 0;
-  margin: 6px 0 6px;
+  margin: 0;
 }
 
 .definitions-list dt {
   color: #757575;
   font-size: 0.85rem;
 }
+
 .definitions-list dd {
   padding: 0;
   margin: 0 0 6px;
+}
+
+.definitions-list dd:last-child {
+  margin-bottom: 0;
 }
 
 .details-action {
