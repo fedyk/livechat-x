@@ -30,10 +30,9 @@ export function addListener(node, type, handler, useCaptureOrOptions) {
 /**
  * Simple implementation of General Update Patter. basically it is how React renders list, but in less code
  * @example
- * selectAll(ulParent, ".chat")
- *   .data([1, 2, 3], d => d)
+ * selectAll(container).data([1, 2, 3], datum => datum)
  *   .join(
- *     enter => enter.append(document.createElement("ul")),
+ *     enterEl => enter.append(document.createElement("ul")),
  *     (update, d) => update.textContent = d,
  *     exit => exit.remove()
  *   )
@@ -140,7 +139,7 @@ export class DataBinder {
         for (let i = 0; i < this.enterGroup.length; i++) {
             const node = this.enterGroup[i];
             if (node) {
-                cb(this.enterGroup[i]);
+                cb(this.enterGroup[i], i);
             }
         }
         return this;

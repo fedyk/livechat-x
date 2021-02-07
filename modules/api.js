@@ -129,7 +129,7 @@ export class API extends TypedEventEmitter {
                 case "queue_positions_updated":
                     return this.handleQueuePositionsUpdated(push);
             }
-            console.log(push);
+            console.log("unhandled push", push);
         };
         this.rtmListeners = new Listeners();
         this.auth = auth;

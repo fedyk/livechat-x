@@ -238,7 +238,7 @@ export class API extends TypedEventEmitter<APIEvents> implements Disposable {
 
     }
 
-    console.log(push);
+    console.log("unhandled push", push);
   }
 
   handleIncomingChat(push: API$Push$IncomingChat) {

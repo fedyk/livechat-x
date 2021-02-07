@@ -1,4 +1,4 @@
-import { Chat, Thread, ChatRoute, Message, SneakPeek, SneakPeekMessage } from "./types"
+import { Chat, Thread, ChatRoute, Message, SneakPeek, SneakPeekMessage, Customer, User, Geolocation } from "./types"
 
 export interface Disposable {
   dispose(): void
@@ -657,7 +657,7 @@ export function mergeMessages(target: Message[], ...sources: Message[][]) {
 /**
  * Get a user who participates in the chat(by default it is customer, but can be other agent)
  */
-export function getChatCustomer(chat: Chat) {
+export function getChatRecipient(chat: Chat): User | void {
   if (chat.customerId && chat.users[chat.customerId]) {
     return chat.users[chat.customerId]
   }
@@ -666,8 +666,10 @@ export function getChatCustomer(chat: Chat) {
 
   // lookup for first present user
   for (let i = 0; i < users.length; i++) {
-    if (users[i].present) {
-      return users[i]
+    const user = users[i]
+
+    if (user.present) {
+      return user
     }
   }
 
@@ -835,4 +837,22 @@ export function stringifyMessage(message: Message) {
   }
 
   return "You should not see this"
+}
+
+export function stringifyGeolocation(geolocation: Geolocation) {
+  const parts: string[] = []
+
+  if (geolocation.city) {
+    parts.push(geolocation.city)
+  }
+
+  if (geolocation.region) {
+    parts.push(geolocation.region)
+  }
+
+  if (geolocation.country) {
+    parts.push(geolocation.country);
+  }
+
+  return parts.join(', ');
 }

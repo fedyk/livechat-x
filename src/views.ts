@@ -1,7 +1,7 @@
 import * as dom from "./dom.js";
 import * as helpers from "./helpers.js";
 import { $Store, State, Store } from "./store.js";
-import { Chat, ChatRoute, Message, MyProfile, RoutingStatus, User } from "./types.js";
+import { Chat, ChatRoute, Customer, CustomerLastVisit, CustomerStatistics, Fields, Geolocation, Message, MyProfile, RoutingStatus, User, UserCustomer, VisitedPage } from "./types.js";
 import { ReverseScroll } from "./reverse-scroll.js";
 import { $API, API } from "./api.js";
 import { getAccountsUrl } from "./config.js";
@@ -279,14 +279,14 @@ export class ChatsListItemView implements helpers.Disposable {
     protected lazyConnect = $LazyConnect()
   ) {
     const connProps = this.storeMapper(this.store.getState())
-    const customer = connProps.chat ? helpers.getChatCustomer(connProps.chat) : void 0
+    const customer = connProps.chat ? helpers.getChatRecipient(connProps.chat) : void 0
 
     this.el = dom.createEl("div", { className: "chats-list-item", }, [
       this.itemAvatarEl = dom.createEl("div", { className: "chat-list-item-avatar" }, [
         (this.avatar = new AvatarView({
           size: 48,
-          alt: customer?.name ?? "Visitor",
-          src: customer?.avatar
+          alt: customer ? customer.name : "Visitor",
+          src: customer ? customer.avatar : void 0
         })).el
       ]),
       this.chatSummaryEl = dom.createEl("div", { className: "chat-summary", }, [
@@ -326,10 +326,10 @@ export class ChatsListItemView implements helpers.Disposable {
 
   render(props: ChatsListItemConnectedProps) {
     if (props.chat) {
-      const customer = helpers.getChatCustomer(props.chat)
+      const customer = helpers.getChatRecipient(props.chat)
       const lastMessage = helpers.getChatLastMessage(props.chat)
 
-      this.chatTitle.textContent = customer?.name ?? "Unnamed visitor"
+      this.chatTitle.textContent = customer ? customer.name : "Unnamed visitor"
 
       if (this.chatRoute === "queued") {
         this.chatSubtitle.textContent = `Waiting in a queue`
@@ -463,7 +463,7 @@ export class ChatView implements helpers.Disposable {
   chatId: string
   el: Element
   chat: ChatFeedView
-  // details: DetailsView
+  details: CustomerDetailsView
   api: API
   abort: AbortController
 
@@ -473,7 +473,7 @@ export class ChatView implements helpers.Disposable {
     this.chatId = props.chatId
     this.el = dom.createEl("div", { className: "chat-container" }, [
       (this.chat = new ChatFeedView({ chatId: props.chatId })).el,
-      // (this.details = new DetailsView({ chatId: props.chatId })).el
+      (this.details = new CustomerDetailsView({ chatId: props.chatId })).el
     ])
 
     console.warn("uncomment this.details = ... above")
@@ -683,7 +683,7 @@ export class ChatBodyView implements helpers.Disposable {
         return "sending"
       }
 
-      const customer = helpers.getChatCustomer(chat)
+      const customer = helpers.getChatRecipient(chat)
 
       if (customer && customer.seenUpTo > message.createdAt) {
         return "seen"
@@ -1107,120 +1107,222 @@ interface DetailsViewProps {
   chatId: string
 }
 
-export class DetailsView implements helpers.Disposable {
-  el: Element
+interface DetailsViewConnProps {
+  user: User | void
+}
 
-  constructor(props: DetailsViewProps) {
-    this.el = dom.createEl("div", {
-      className: "details",
-      innerHTML: `
-          <div class="details-header">
-            <div class="details-title">Visitor Info ${props.chatId}</div>
-            <button class="details-close">
-              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" class="bi bi-x"
-                viewBox="0 0 16 16">
-                <path fill-rule="evenodd"
-                  d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z" />
-              </svg>
-            </button>
-          </div>
+export class CustomerDetailsView implements helpers.Disposable {
+  el: HTMLDivElement
+  detailsAvatar: HTMLDivElement
+  avatar?: AvatarView
+  name: HTMLDivElement
+  email: HTMLDivElement
+  location: HTMLDivElement
+  locationRow: HTMLDivElement
+  ipRow: HTMLDivElement
+  ip: HTMLDivElement
+  generalInfoRow: HTMLDivElement
+  generalInfoList: HTMLDListElement
+  sessionFieldsRow: HTMLDivElement
+  sessionFieldsList: HTMLDListElement
+  lastPagesRow: HTMLDivElement
+  lastPagesList: HTMLDListElement
+  connProps: DetailsViewConnProps
+  storeListener: helpers.Listener
 
-          <div class="details-body">
-            <div class="details-row">
-              <div class="details-avatar">
-                <div class="avatar">
-                  <img src="https://i.pravatar.cc/512?img=2" height="48px" width="48px" />
-                </div>
-              </div>
-              <div class="details-basic">
-                <div class="text-primary">John Wick</div>
-                <div class="text-muted">john@sec.email</div>
-              </div>
-            </div>
+  constructor(
+    protected props: DetailsViewProps,
+    protected store = $Store(),
+    protected lazyConnect = $LazyConnect()
+  ) {
+    this.connProps = this.storeMapper(this.store.getState())
+    this.el = dom.createEl("div", { className: "details" }, [
+      dom.createEl("div", { className: "details-header" }, [
+        dom.createEl("div", { className: "details-title", textContent: "Details" }),
+        dom.createEl("button", {
+          className: "details-close hidden", innerHTML: `
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" class="bi bi-x" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z" />
+          </svg>
+        ` }),
+      ]),
+      dom.createEl("div", { className: "details-body" }, [
+        dom.createEl("div", { className: "details-row" }, [
+          this.detailsAvatar = dom.createEl("div", { className: "details-avatar" }),
+          dom.createEl("div",{}, [
+            this.name = dom.createEl("div", { className: "text-primary", textContent: this.connProps.user ? this.connProps.user.name : "" }),
+            this.email = dom.createEl("div", { className: "text-small", textContent: this.connProps.user ? this.connProps.user.email : "" })
+          ])
+        ]),
 
-            <div class="details-row">
-              <div class="details-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-geo-alt"
-                  viewBox="0 0 16 16">
-                  <path fill-rule="evenodd"
-                    d="M12.166 8.94C12.696 7.867 13 6.862 13 6A5 5 0 0 0 3 6c0 .862.305 1.867.834 2.94.524 1.062 1.234 2.12 1.96 3.07A31.481 31.481 0 0 0 8 14.58l.208-.22a31.493 31.493 0 0 0 1.998-2.35c.726-.95 1.436-2.008 1.96-3.07zM8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10z" />
-                  <path fill-rule="evenodd" d="M8 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 1a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
-                </svg>
-              </div>
-              <div class="text-primary">Lviv, Ukraine</div>
-            </div>
-            <div class="details-row">
-              <div class="details-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-wifi"
-                  viewBox="0 0 16 16">
-                  <path
-                    d="M15.385 6.115a.485.485 0 0 0-.048-.736A12.443 12.443 0 0 0 8 3 12.44 12.44 0 0 0 .663 5.379a.485.485 0 0 0-.048.736.518.518 0 0 0 .668.05A11.448 11.448 0 0 1 8 4c2.507 0 4.827.802 6.717 2.164.204.148.489.13.668-.049z" />
-                  <path
-                    d="M13.229 8.271c.216-.216.194-.578-.063-.745A9.456 9.456 0 0 0 8 6c-1.905 0-3.68.56-5.166 1.526a.48.48 0 0 0-.063.745.525.525 0 0 0 .652.065A8.46 8.46 0 0 1 8 7a8.46 8.46 0 0 1 4.577 1.336c.205.132.48.108.652-.065zm-2.183 2.183c.226-.226.185-.605-.1-.75A6.472 6.472 0 0 0 8 9c-1.06 0-2.062.254-2.946.704-.285.145-.326.524-.1.75l.015.015c.16.16.408.19.611.09A5.478 5.478 0 0 1 8 10c.868 0 1.69.201 2.42.56.203.1.45.07.611-.091l.015-.015zM9.06 12.44c.196-.196.198-.52-.04-.66A1.99 1.99 0 0 0 8 11.5a1.99 1.99 0 0 0-1.02.28c-.238.14-.236.464-.04.66l.706.706a.5.5 0 0 0 .708 0l.707-.707z" />
-                </svg>
-              </div>
-              <div class="text-primary">132.234.543.2</div>
-            </div>
-            <div class="details-row">
-              <dl class="definitions-list">
-                <dt>Referrer</dt>
-                <dd>http://www.google.com/</dd>
+        this.locationRow = dom.createEl("div", { className: "details-row" }, [
+          dom.createEl("div", {
+            className: "details-icon", innerHTML: `
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-geo-alt" viewBox="0 0 16 16">
+              <path fill-rule="evenodd" d="M12.166 8.94C12.696 7.867 13 6.862 13 6A5 5 0 0 0 3 6c0 .862.305 1.867.834 2.94.524 1.062 1.234 2.12 1.96 3.07A31.481 31.481 0 0 0 8 14.58l.208-.22a31.493 31.493 0 0 0 1.998-2.35c.726-.95 1.436-2.008 1.96-3.07zM8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10z" />
+              <path fill-rule="evenodd" d="M8 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm0 1a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+            </svg>
+          `}),
+          this.location = dom.createEl("div", { className: "text-primary", textContent: "..." })
+        ]),
 
-                <dt>Browser</dt>
-                <dd>Chrome 47 on Windows 40</dd>
+        this.ipRow = dom.createEl("div", { className: "details-row" }, [
+          dom.createEl("div", {
+            className: "details-icon", innerHTML: `
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-wifi" viewBox="0 0 16 16">
+              <path d="M15.385 6.115a.485.485 0 0 0-.048-.736A12.443 12.443 0 0 0 8 3 12.44 12.44 0 0 0 .663 5.379a.485.485 0 0 0-.048.736.518.518 0 0 0 .668.05A11.448 11.448 0 0 1 8 4c2.507 0 4.827.802 6.717 2.164.204.148.489.13.668-.049z" />
+              <path d="M13.229 8.271c.216-.216.194-.578-.063-.745A9.456 9.456 0 0 0 8 6c-1.905 0-3.68.56-5.166 1.526a.48.48 0 0 0-.063.745.525.525 0 0 0 .652.065A8.46 8.46 0 0 1 8 7a8.46 8.46 0 0 1 4.577 1.336c.205.132.48.108.652-.065zm-2.183 2.183c.226-.226.185-.605-.1-.75A6.472 6.472 0 0 0 8 9c-1.06 0-2.062.254-2.946.704-.285.145-.326.524-.1.75l.015.015c.16.16.408.19.611.09A5.478 5.478 0 0 1 8 10c.868 0 1.69.201 2.42.56.203.1.45.07.611-.091l.015-.015zM9.06 12.44c.196-.196.198-.52-.04-.66A1.99 1.99 0 0 0 8 11.5a1.99 1.99 0 0 0-1.02.28c-.238.14-.236.464-.04.66l.706.706a.5.5 0 0 0 .708 0l.707-.707z" />
+            </svg>
+          `}),
+          this.ip = dom.createEl("div", { className: "text-primary", textContent: "..." })
+        ]),
 
-                <dt>Total visits</dt>
-                <dd>12</dd>
-              </dl>
-            </div>
-            <div class="details-row">
-              <div>
-                <div class="regular-text">Session fields </div>
+        this.generalInfoRow = dom.createEl("div", { className: "details-row" }, [
+          this.generalInfoList = dom.createEl("dl", { className: "definitions-list" })
+        ]),
 
-                <dl class="definitions-list">
-                  <dt>username</dt>
-                  <dd>@gsefs</dd>
+        this.sessionFieldsRow = dom.createEl("div", { className: "details-row" }, [
+          dom.createEl("div", { }, [
+            dom.createEl("div", { className: "regular-text py-2", textContent: "Session Fields" }),
+            this.sessionFieldsList = dom.createEl("dl", { className: "definitions-list" })
+          ])
+        ]),
 
-                  <dt>cart_value</dt>
-                  <dd>450</dd>
+        this.lastPagesRow = dom.createEl("div", { className: "details-row" }, [
+          dom.createEl("div", { }, [
+            dom.createEl("div", { className: "regular-text py-2", textContent: "Last Pages" }),
+            this.lastPagesList = dom.createEl("dl", { className: "definitions-list" })
+          ])
+        ]),
 
-                  <dt>order date</dt>
-                  <dd>05/21/2019</dd>
-                </dl>
-              </div>
-            </div>
-            <div class="details-row">
-              <div class="">
-                <div class="regular-text">Last pages </div>
+        /**
+         * @todo add handlers
+         */
+        dom.createEl("div", { className: "details-actions hidden" }, [
+          dom.createEl("a", { className: "details-action", textContent: "Edit visitor" }),
+          dom.createEl("a", { className: "details-action details-action-destroy", textContent: "Ban visitor" })
+        ])
+      ])
+    ])
 
-                <dl class="definitions-list">
-                  <dt>LiveChat sdsd</dt>
-                  <dd>livechat.com/sdfsdf/sadfs</dd>
-
-                  <dt>LiveChat - Tour</dt>
-                  <dd>https://www.livechatinc.com/tour</dd>
-
-                  <dt>LiveChat - Homepage</dt>
-                  <dd>https://www.livechatinc.com/</dd>
-                </dl>
-              </div>
-            </div>
-            <div class="details-actions">
-              <a href="#" class="details-action">
-                Edit visitor
-              </a>
-              <a href="#" class="details-action details-action-destroy">
-                Ban visitor
-              </a>
-            </div>
-          </div>
-    `
-    })
+    this.storeListener = lazyConnect.connect(
+      s => this.storeMapper(s),
+      p => this.render(p)
+    )
   }
 
   dispose() {
     this.el.remove()
-    this.el = null!
+    this.avatar?.dispose()
+    this.storeListener.unbind()
+  }
+
+  protected storeMapper(state: State): DetailsViewConnProps {
+    const chat = state.chatsByIds[this.props.chatId]
+    const customer = chat ? helpers.getChatRecipient(chat) : void 0
+
+    return { user: customer }
+  }
+
+  protected render(props: DetailsViewConnProps) {
+    const user = props.user
+    const lastVisit = user && user.type === "customer" ? user.lastVisit : void 0
+    const statistics = user && user.type === "customer" ? user.statistics : void 0
+    const fields = user && user.type === "customer" ? user.fields : void 0
+    const geolocation = lastVisit ? lastVisit.geolocation : void 0
+
+    this.name.textContent = user ? user.name : "Unnamed customer"
+    this.email.textContent = user ? user.email : "-"
+    this.location.textContent = geolocation ? helpers.stringifyGeolocation(geolocation) : "Mars 🛸"
+    this.ip.textContent = lastVisit ? lastVisit.ip : "127.0.0.1"
+
+    // show or hide row
+    dom.toggleEl(this.locationRow, Boolean(geolocation))
+    dom.toggleEl(this.ipRow, Boolean(lastVisit))
+
+    this.renderAvatar(user)
+    this.renderGeneralInfo(lastVisit, statistics)
+    this.renderSessionFields(fields)
+    this.renderLastPages(lastVisit?.lastPages)
+  }
+
+  protected renderAvatar(user: User | void) {
+    dom.toggleEl(this.detailsAvatar, Boolean(user))
+
+    if (!user) {
+      this.avatar?.dispose()
+    }
+    else {
+      if (!this.avatar) {
+        this.avatar = new AvatarView({
+          size: 48,
+          alt: user.name,
+          src: user.avatar
+        })
+
+        this.detailsAvatar.append(this.avatar.el)
+      }
+      else {
+        this.avatar.setAlt(user.name)
+        this.avatar.setSrc(user.avatar)
+      }
+    }
+  }
+
+  protected renderGeneralInfo(lastVisit?: CustomerLastVisit, statistics?: CustomerStatistics) {
+    dom.toggleEl(this.generalInfoList, Boolean(lastVisit && statistics))
+
+    const data: string[] = []
+
+    if (lastVisit?.referrer) {
+      data.push("Referrer", lastVisit.referrer)
+    }
+
+    if (lastVisit?.userAgent) {
+      data.push("Browser", lastVisit.userAgent)
+    }
+
+    if (statistics) {
+      data.push("Total visits", String(statistics.visitsCount))
+    }
+
+    this.renderList(this.generalInfoList, data)
+  }
+
+  protected renderSessionFields(fields?: Fields) {
+    const data = (fields || []).reduce<string[]>((prev, curr) => {
+      return prev.push(curr.name, curr.value), prev
+    }, [])
+
+    dom.toggleEl(this.sessionFieldsRow, data.length > 0)
+    this.renderList(this.sessionFieldsList, data)
+  }
+
+  protected renderLastPages(lastPages?: VisitedPage[]) {
+    const data = (lastPages || []).reduce<string[]>((prev, curr) => {
+      return prev.push(curr.title, curr.title), prev
+    }, [])
+
+    dom.toggleEl(this.lastPagesRow, data.length > 0)
+    this.renderList(this.lastPagesList, data)
+  }
+
+  protected renderList(container: HTMLElement, data: string[]) {
+    dom.selectAll(container)
+      .data(data, (d, i) => i)
+      .join(enter, update, exit)
+
+    function enter(enterNode: dom.EnterNode<string>, i: number) {
+      enterNode.append(dom.createEl(i % 2 ? "dd" : "dt", { textContent: enterNode.d }))
+    }
+
+    function update(updateNode: dom.ElementWithDatum<string>) {
+      updateNode.textContent = dom.getDatum(updateNode) ?? "n/a"
+    }
+
+    function exit(exitNode: HTMLElement) {
+      exitNode.remove()
+    }
   }
 }
 
@@ -1275,9 +1377,19 @@ export class AvatarView implements helpers.Disposable {
     this.props.alt === alt
   }
 
-  setSrc(src: string) {
-    if (this.props.src === src) return // no changes
-    if (this.img) this.img.src = src
+  setSrc(src?: string) {
+    if (this.props.src === src) {
+      return // no changes
+    }
+
+    if (this.img && src) {
+      this.img.src = src
+    }
+
+    /**
+     * @todo handle case when src has changed to empty
+     */
+
     this.props.src = src
   }
 

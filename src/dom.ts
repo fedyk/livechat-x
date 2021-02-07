@@ -67,10 +67,9 @@ interface Key<T> {
 /**
  * Simple implementation of General Update Patter. basically it is how React renders list, but in less code
  * @example
- * selectAll(ulParent, ".chat")
- *   .data([1, 2, 3], d => d)
+ * selectAll(container).data([1, 2, 3], datum => datum)
  *   .join(
- *     enter => enter.append(document.createElement("ul")),
+ *     enterEl => enter.append(document.createElement("ul")),
  *     (update, d) => update.textContent = d,
  *     exit => exit.remove()
  *   )
@@ -156,7 +155,7 @@ export class DataBinder<T> {
   }
 
   join(
-    enter: (node: EnterNode<T>) => void | void,
+    enter: (node: EnterNode<T>, i: number) => void | void,
     update: (node: ElementWithDatum<T>) => void | void,
     exit: (node: ElementWithDatum<T>) => void | void
   ) {
@@ -194,12 +193,12 @@ export class DataBinder<T> {
     }
   }
 
-  protected enter(cb: (node: EnterNode<T>) => void) {
+  protected enter(cb: (node: EnterNode<T>, i: number) => void) {
     for (let i = 0; i < this.enterGroup.length; i++) {
       const node = this.enterGroup[i]
 
       if (node) {
-        cb(this.enterGroup[i])
+        cb(this.enterGroup[i], i)
       }
     }
 
