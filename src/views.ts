@@ -133,12 +133,12 @@ export class HeaderView implements helpers.Disposable {
     this.el = null!
   }
 
-  render(props: HeaderViewConnectProps) {
+  protected render(props: HeaderViewConnectProps) {
     this.renderMyProfileAvatar(props.myProfile)
     this.renderMyRoutingStatus(props.myRoutingStatus)
   }
 
-  renderMyProfileAvatar(myProfile: MyProfile | null) {
+  protected renderMyProfileAvatar(myProfile: MyProfile | null) {
     if (myProfile) {
       if (!this.avatarView) {
         this.profile.append(
@@ -260,9 +260,8 @@ interface ChatsListItemConnectedProps {
 
 export class ChatsListItemView implements helpers.Disposable {
   el: Element
-  avatar: AvatarView
   chatRoute: ChatRoute | void
-  itemAvatarEl: Element
+  itemAvatarEl: HTMLDivElement
   chatSummaryEl: Element
   chatTitle: Element
   chatMeta: Element
@@ -282,13 +281,7 @@ export class ChatsListItemView implements helpers.Disposable {
     const customer = connProps.chat ? helpers.getChatRecipient(connProps.chat) : void 0
 
     this.el = dom.createEl("div", { className: "chats-list-item", }, [
-      this.itemAvatarEl = dom.createEl("div", { className: "chat-list-item-avatar" }, [
-        (this.avatar = new AvatarView({
-          size: 48,
-          alt: customer ? customer.name : "Visitor",
-          src: customer ? customer.avatar : void 0
-        })).el
-      ]),
+      this.itemAvatarEl = dom.createEl("div", { className: "chat-list-item-avatar" }),
       this.chatSummaryEl = dom.createEl("div", { className: "chat-summary", }, [
         dom.createEl("div", { className: "chat-summary-row", }, [
           this.chatTitle = dom.createEl("div", { className: "chat-title", textContent: "Unnamed visitor" }),
@@ -319,17 +312,30 @@ export class ChatsListItemView implements helpers.Disposable {
     this.storeListener.unbind()
     this.clickListener.unbind()
     this.chatRouteListener.unbind()
-    this.avatar.dispose()
-    this.itemAvatarEl.remove()
+    AvatarView.removeAvatar(this.itemAvatarEl)
     this.el.remove()
   }
 
-  render(props: ChatsListItemConnectedProps) {
+  selectChat() {
+    this.store.setSelectedChatId(this.props.chatId)
+  }
+
+  protected render(props: ChatsListItemConnectedProps) {
     if (props.chat) {
-      const customer = helpers.getChatRecipient(props.chat)
+      const user = helpers.getChatRecipient(props.chat)
       const lastMessage = helpers.getChatLastMessage(props.chat)
 
-      this.chatTitle.textContent = customer ? customer.name : "Unnamed visitor"
+      if (user) {
+        this.chatTitle.textContent = user.name
+
+        AvatarView.renderAvatar(this.itemAvatarEl, {
+          size: 48,
+          alt: user.name,
+          src: user.avatar
+        })
+      }
+
+      this.chatTitle.textContent = user ? user.name : "Unnamed visitor"
 
       if (this.chatRoute === "queued") {
         this.chatSubtitle.textContent = `Waiting in a queue`
@@ -349,10 +355,6 @@ export class ChatsListItemView implements helpers.Disposable {
     else {
       this.el.classList.remove("selected")
     }
-  }
-
-  selectChat() {
-    this.store.setSelectedChatId(this.props.chatId)
   }
 
   protected storeMapper(state: State): ChatsListItemConnectedProps {
@@ -513,7 +515,9 @@ export class ChatFeedView implements helpers.Disposable {
     this.el = dom.createEl("div", {
       className: "chat-feed"
     }, [
-      (this.chatHeader = new ChatHeaderView()).el,
+      (this.chatHeader = new ChatHeaderView({
+        chatId: props.chatId
+      })).el,
       (this.chatBody = new ChatBodyView({
         chatId: props.chatId
       })).el,
@@ -531,27 +535,75 @@ export class ChatFeedView implements helpers.Disposable {
     this.el = null!
   }
 }
+
+interface ChatHeaderViewProps {
+  chatId: string
+}
+
+interface ChatHeaderViewRenderProps {
+  user: User | void
+}
+
 export class ChatHeaderView implements helpers.Disposable {
-  el: Element
+  el: HTMLDivElement
+  headerAvatar: HTMLDivElement
+  headerTitle: HTMLDivElement
+  dropdown: DropdownView
+  connectListener: helpers.Listener
 
-  constructor() {
-    this.el = dom.createEl("div", { className: "chat-header" })
+  constructor(protected props: ChatHeaderViewProps, lazyConnect = $LazyConnect()) {
+    this.el = dom.createEl("div", { className: "chat-header" }, [
+      this.headerAvatar = dom.createEl("div", { className: "chat-header-avatar" }),
+      dom.createEl("div", { className: "chat-header-details" }, [
+        this.headerTitle = dom.createEl("div", { className: "chat-header-title" })
+      ]),
+      dom.createEl("div", { className: "chat-header-menu" }, [
+        (this.dropdown = new DropdownView({
+          content: dom.createEl("div", { className: "chat-header-more-button" }, [
+            dom.createEl("div", { className: "chat-header-more-label", textContent: "More" }),
+            createIconEl({ name: "caret-down-fill", size: 10 })
+          ]),
+          menuContent: [
+            dom.createEl("a", { className: "dropdown-item", href: "", textContent: "Transfer to..", onclick: () => alert("todo") }),
+            dom.createEl("a", { className: "dropdown-item", href: "", textContent: "Archive", onclick: () => alert("todo") }),
+          ],
+          menuContentAlignRight: true
+        })).el
+      ])
+    ])
 
-    this.el.innerHTML = `
-    <div class="chat-header-avatar">
-              <div class="avatar" style="height: 36px; width: 36px;">
-                <img src="https://i.pravatar.cc/512?img=3" alt="AT" height="36px" width="36px" />
-              </div>
-            </div>
-            <div class="chat-header-details">
-              <div class="chat-header-title">Unnamed Customer</div>
-            </div>
-            `
+    this.connectListener = lazyConnect.connect<ChatHeaderViewRenderProps>(
+      state => this.mapper(state),
+      props => this.render(props)
+    )
   }
 
   dispose() {
+    AvatarView.removeAvatar(this.headerAvatar)
+    this.dropdown.dispose()
+    this.connectListener.unbind()
     this.el.remove()
-    this.el = null!
+  }
+
+  protected render(props: ChatHeaderViewRenderProps) {
+    if (!props.user) {
+      return
+    }
+
+    AvatarView.renderAvatar(this.headerAvatar, {
+      size: 36,
+      alt: props.user.name,
+      src: props.user.avatar
+    })
+
+    this.headerTitle.textContent = props.user.name
+  }
+
+  protected mapper(state: State): ChatHeaderViewRenderProps {
+    const chat = state.chatsByIds[this.props.chatId]
+    const user = chat ? helpers.getChatRecipient(chat) : void 0
+
+    return { user }
   }
 }
 
@@ -1114,7 +1166,6 @@ interface DetailsViewConnProps {
 export class CustomerDetailsView implements helpers.Disposable {
   el: HTMLDivElement
   detailsAvatar: HTMLDivElement
-  avatar?: AvatarView
   name: HTMLDivElement
   email: HTMLDivElement
   location: HTMLDivElement
@@ -1149,7 +1200,7 @@ export class CustomerDetailsView implements helpers.Disposable {
       dom.createEl("div", { className: "details-body" }, [
         dom.createEl("div", { className: "details-row" }, [
           this.detailsAvatar = dom.createEl("div", { className: "details-avatar" }),
-          dom.createEl("div",{}, [
+          dom.createEl("div", {}, [
             this.name = dom.createEl("div", { className: "text-primary", textContent: this.connProps.user ? this.connProps.user.name : "" }),
             this.email = dom.createEl("div", { className: "text-small", textContent: this.connProps.user ? this.connProps.user.email : "" })
           ])
@@ -1182,14 +1233,14 @@ export class CustomerDetailsView implements helpers.Disposable {
         ]),
 
         this.sessionFieldsRow = dom.createEl("div", { className: "details-row" }, [
-          dom.createEl("div", { }, [
+          dom.createEl("div", {}, [
             dom.createEl("div", { className: "regular-text py-2", textContent: "Session Fields" }),
             this.sessionFieldsList = dom.createEl("dl", { className: "definitions-list" })
           ])
         ]),
 
         this.lastPagesRow = dom.createEl("div", { className: "details-row" }, [
-          dom.createEl("div", { }, [
+          dom.createEl("div", {}, [
             dom.createEl("div", { className: "regular-text py-2", textContent: "Last Pages" }),
             this.lastPagesList = dom.createEl("dl", { className: "definitions-list" })
           ])
@@ -1212,9 +1263,9 @@ export class CustomerDetailsView implements helpers.Disposable {
   }
 
   dispose() {
-    this.el.remove()
-    this.avatar?.dispose()
+    AvatarView.removeAvatar(this.detailsAvatar)
     this.storeListener.unbind()
+    this.el.remove()
   }
 
   protected storeMapper(state: State): DetailsViewConnProps {
@@ -1250,22 +1301,14 @@ export class CustomerDetailsView implements helpers.Disposable {
     dom.toggleEl(this.detailsAvatar, Boolean(user))
 
     if (!user) {
-      this.avatar?.dispose()
+      AvatarView.removeAvatar(this.detailsAvatar)
     }
     else {
-      if (!this.avatar) {
-        this.avatar = new AvatarView({
-          size: 48,
-          alt: user.name,
-          src: user.avatar
-        })
-
-        this.detailsAvatar.append(this.avatar.el)
-      }
-      else {
-        this.avatar.setAlt(user.name)
-        this.avatar.setSrc(user.avatar)
-      }
+      AvatarView.renderAvatar(this.detailsAvatar, {
+        size: 48,
+        alt: user.name,
+        src: user.avatar
+      })
     }
   }
 
@@ -1333,6 +1376,30 @@ interface AvatarProps {
 }
 
 export class AvatarView implements helpers.Disposable {
+  static avatars = new WeakMap<HTMLElement, AvatarView>()
+
+  static renderAvatar(container: HTMLElement, props: AvatarProps) {
+    let avatar = AvatarView.avatars.get(container)
+
+    if (!avatar) {
+      AvatarView.avatars.set(container, avatar = new AvatarView(props))
+
+      container.append(avatar.el)
+    }
+    else {
+      avatar.setAlt(props.alt)
+      avatar.setSrc(props.src)
+    }
+  }
+
+  static removeAvatar(container: HTMLElement) {
+    const avatar = AvatarView.avatars.get(container)
+
+    if (avatar) {
+      avatar.dispose()
+    }
+  }
+
   el: HTMLDivElement
   img?: HTMLImageElement
   alt: HTMLDivElement
@@ -1559,6 +1626,7 @@ export class CheckboxView extends helpers.TypedEventEmitter<CheckboxViewEvents> 
 interface DropdownViewProps {
   content: Element
   menuContent: (string | Node)[]
+  menuContentAlignRight?: boolean
 }
 
 class DropdownView implements helpers.Disposable {
@@ -1567,9 +1635,13 @@ class DropdownView implements helpers.Disposable {
   listeners: helpers.Listeners
 
   constructor(props: DropdownViewProps) {
+    const menuClassName = helpers.classNames("dropdown-menu", {
+      "dropdown-menu--align-right": props.menuContentAlignRight
+    })
+
     this.el = dom.createEl("div", { className: "dropdown" }, [
       props.content,
-      dom.createEl("div", { className: "dropdown-menu" }, props.menuContent)
+      dom.createEl("div", { className: menuClassName }, props.menuContent)
     ])
     this.listeners = new helpers.Listeners(
       dom.addListener(this.el, "mouseenter", () => this.handleMouseEnter()),

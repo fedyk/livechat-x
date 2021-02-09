@@ -175,13 +175,7 @@ export class ChatsListItemView {
         const connProps = this.storeMapper(this.store.getState());
         const customer = connProps.chat ? helpers.getChatRecipient(connProps.chat) : void 0;
         this.el = dom.createEl("div", { className: "chats-list-item", }, [
-            this.itemAvatarEl = dom.createEl("div", { className: "chat-list-item-avatar" }, [
-                (this.avatar = new AvatarView({
-                    size: 48,
-                    alt: customer ? customer.name : "Visitor",
-                    src: customer ? customer.avatar : void 0
-                })).el
-            ]),
+            this.itemAvatarEl = dom.createEl("div", { className: "chat-list-item-avatar" }),
             this.chatSummaryEl = dom.createEl("div", { className: "chat-summary", }, [
                 dom.createEl("div", { className: "chat-summary-row", }, [
                     this.chatTitle = dom.createEl("div", { className: "chat-title", textContent: "Unnamed visitor" }),
@@ -204,15 +198,25 @@ export class ChatsListItemView {
         this.storeListener.unbind();
         this.clickListener.unbind();
         this.chatRouteListener.unbind();
-        this.avatar.dispose();
-        this.itemAvatarEl.remove();
+        AvatarView.removeAvatar(this.itemAvatarEl);
         this.el.remove();
+    }
+    selectChat() {
+        this.store.setSelectedChatId(this.props.chatId);
     }
     render(props) {
         if (props.chat) {
-            const customer = helpers.getChatRecipient(props.chat);
+            const user = helpers.getChatRecipient(props.chat);
             const lastMessage = helpers.getChatLastMessage(props.chat);
-            this.chatTitle.textContent = customer ? customer.name : "Unnamed visitor";
+            if (user) {
+                this.chatTitle.textContent = user.name;
+                AvatarView.renderAvatar(this.itemAvatarEl, {
+                    size: 48,
+                    alt: user.name,
+                    src: user.avatar
+                });
+            }
+            this.chatTitle.textContent = user ? user.name : "Unnamed visitor";
             if (this.chatRoute === "queued") {
                 this.chatSubtitle.textContent = `Waiting in a queue`;
             }
@@ -230,9 +234,6 @@ export class ChatsListItemView {
         else {
             this.el.classList.remove("selected");
         }
-    }
-    selectChat() {
-        this.store.setSelectedChatId(this.props.chatId);
     }
     storeMapper(state) {
         return {
@@ -338,7 +339,9 @@ export class ChatFeedView {
         this.el = dom.createEl("div", {
             className: "chat-feed"
         }, [
-            (this.chatHeader = new ChatHeaderView()).el,
+            (this.chatHeader = new ChatHeaderView({
+                chatId: props.chatId
+            })).el,
             (this.chatBody = new ChatBodyView({
                 chatId: props.chatId
             })).el,
@@ -356,22 +359,50 @@ export class ChatFeedView {
     }
 }
 export class ChatHeaderView {
-    constructor() {
-        this.el = dom.createEl("div", { className: "chat-header" });
-        this.el.innerHTML = `
-    <div class="chat-header-avatar">
-              <div class="avatar" style="height: 36px; width: 36px;">
-                <img src="https://i.pravatar.cc/512?img=3" alt="AT" height="36px" width="36px" />
-              </div>
-            </div>
-            <div class="chat-header-details">
-              <div class="chat-header-title">Unnamed Customer</div>
-            </div>
-            `;
+    constructor(props, lazyConnect = $LazyConnect()) {
+        this.props = props;
+        this.el = dom.createEl("div", { className: "chat-header" }, [
+            this.headerAvatar = dom.createEl("div", { className: "chat-header-avatar" }),
+            dom.createEl("div", { className: "chat-header-details" }, [
+                this.headerTitle = dom.createEl("div", { className: "chat-header-title" })
+            ]),
+            dom.createEl("div", { className: "chat-header-menu" }, [
+                (this.dropdown = new DropdownView({
+                    content: dom.createEl("div", { className: "chat-header-more-button" }, [
+                        dom.createEl("div", { className: "chat-header-more-label", textContent: "More" }),
+                        createIconEl({ name: "caret-down-fill", size: 10 })
+                    ]),
+                    menuContent: [
+                        dom.createEl("a", { className: "dropdown-item", href: "", textContent: "Transfer to..", onclick: () => alert("todo") }),
+                        dom.createEl("a", { className: "dropdown-item", href: "", textContent: "Archive", onclick: () => alert("todo") }),
+                    ],
+                    menuContentAlignRight: true
+                })).el
+            ])
+        ]);
+        this.connectListener = lazyConnect.connect(state => this.mapper(state), props => this.render(props));
     }
     dispose() {
+        AvatarView.removeAvatar(this.headerAvatar);
+        this.dropdown.dispose();
+        this.connectListener.unbind();
         this.el.remove();
-        this.el = null;
+    }
+    render(props) {
+        if (!props.user) {
+            return;
+        }
+        AvatarView.renderAvatar(this.headerAvatar, {
+            size: 36,
+            alt: props.user.name,
+            src: props.user.avatar
+        });
+        this.headerTitle.textContent = props.user.name;
+    }
+    mapper(state) {
+        const chat = state.chatsByIds[this.props.chatId];
+        const user = chat ? helpers.getChatRecipient(chat) : void 0;
+        return { user };
     }
 }
 export class ChatBodyView {
@@ -838,9 +869,9 @@ export class CustomerDetailsView {
         this.storeListener = lazyConnect.connect(s => this.storeMapper(s), p => this.render(p));
     }
     dispose() {
-        this.el.remove();
-        this.avatar?.dispose();
+        AvatarView.removeAvatar(this.detailsAvatar);
         this.storeListener.unbind();
+        this.el.remove();
     }
     storeMapper(state) {
         const chat = state.chatsByIds[this.props.chatId];
@@ -868,21 +899,14 @@ export class CustomerDetailsView {
     renderAvatar(user) {
         dom.toggleEl(this.detailsAvatar, Boolean(user));
         if (!user) {
-            this.avatar?.dispose();
+            AvatarView.removeAvatar(this.detailsAvatar);
         }
         else {
-            if (!this.avatar) {
-                this.avatar = new AvatarView({
-                    size: 48,
-                    alt: user.name,
-                    src: user.avatar
-                });
-                this.detailsAvatar.append(this.avatar.el);
-            }
-            else {
-                this.avatar.setAlt(user.name);
-                this.avatar.setSrc(user.avatar);
-            }
+            AvatarView.renderAvatar(this.detailsAvatar, {
+                size: 48,
+                alt: user.name,
+                src: user.avatar
+            });
         }
     }
     renderGeneralInfo(lastVisit, statistics) {
@@ -949,6 +973,23 @@ export class AvatarView {
             this.imgListener = dom.addListener(this.img, "error", this.handleImgError);
         }
     }
+    static renderAvatar(container, props) {
+        let avatar = AvatarView.avatars.get(container);
+        if (!avatar) {
+            AvatarView.avatars.set(container, avatar = new AvatarView(props));
+            container.append(avatar.el);
+        }
+        else {
+            avatar.setAlt(props.alt);
+            avatar.setSrc(props.src);
+        }
+    }
+    static removeAvatar(container) {
+        const avatar = AvatarView.avatars.get(container);
+        if (avatar) {
+            avatar.dispose();
+        }
+    }
     dispose() {
         this.imgListener?.dispose();
         this.el.remove();
@@ -977,6 +1018,7 @@ export class AvatarView {
         this.el.classList.add("avatar-no-img");
     }
 }
+AvatarView.avatars = new WeakMap();
 export function createIconEl(props) {
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     const size = String(props.size ?? 16);
@@ -1093,9 +1135,12 @@ export class CheckboxView extends helpers.TypedEventEmitter {
 }
 class DropdownView {
     constructor(props) {
+        const menuClassName = helpers.classNames("dropdown-menu", {
+            "dropdown-menu--align-right": props.menuContentAlignRight
+        });
         this.el = dom.createEl("div", { className: "dropdown" }, [
             props.content,
-            dom.createEl("div", { className: "dropdown-menu" }, props.menuContent)
+            dom.createEl("div", { className: menuClassName }, props.menuContent)
         ]);
         this.listeners = new helpers.Listeners(dom.addListener(this.el, "mouseenter", () => this.handleMouseEnter()), dom.addListener(this.el, "mouseleave", () => this.handleMouseLeave()));
     }
