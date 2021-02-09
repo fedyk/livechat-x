@@ -147,14 +147,13 @@ button {
   position: absolute;
   z-index: 990;
   top: calc(100% + 10px);
-  left: -10px;
+  left: 0;
   min-width: 10rem;
   border: 1px solid var(--border-color);
   color: var(--main-text-color);
   background-color: var(--main-bg-color);
   border-radius: var(--border-radius);
   overflow: hidden;
-
   visibility: hidden;
   opacity: 0;
   transition: opacity 100ms linear, top 100ms linear, bottom 100ms linear,
@@ -162,11 +161,16 @@ button {
   pointer-events: none;
 }
 
+.dropdown-menu--align-right {
+  right: 0;
+  left: auto;
+}
+
 .dropdown-item {
   position: relative;
   display: block;
   width: 100%;
-  padding: 0.25rem 1rem;
+  padding: 0.5rem 1rem;
   text-decoration: none;
   color: var(--main-text-color);
   white-space: nowrap;
@@ -453,6 +457,25 @@ button {
 
 .chat-header-avatar {
   margin-right: 14px;
+}
+
+.chat-header-details {
+  flex: 1;
+}
+
+.chat-header-menu {
+  position: relative;
+}
+
+.chat-header-more-button {
+  display: flex;
+  align-items: center;
+  height: var(--header-height);
+  cursor: pointer;
+}
+
+.chat-header-more-label {
+  margin-right: 4px;
 }
 
 .composer {

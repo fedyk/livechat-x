@@ -366,11 +366,25 @@ export class ChatHeaderView {
             dom.createEl("div", { className: "chat-header-details" }, [
                 this.headerTitle = dom.createEl("div", { className: "chat-header-title" })
             ]),
+            dom.createEl("div", { className: "chat-header-menu" }, [
+                (this.dropdown = new DropdownView({
+                    content: dom.createEl("div", { className: "chat-header-more-button" }, [
+                        dom.createEl("div", { className: "chat-header-more-label", textContent: "More" }),
+                        createIconEl({ name: "caret-down-fill", size: 10 })
+                    ]),
+                    menuContent: [
+                        dom.createEl("a", { className: "dropdown-item", href: "", textContent: "Transfer to..", onclick: () => alert("todo") }),
+                        dom.createEl("a", { className: "dropdown-item", href: "", textContent: "Archive", onclick: () => alert("todo") }),
+                    ],
+                    menuContentAlignRight: true
+                })).el
+            ])
         ]);
         this.connectListener = lazyConnect.connect(state => this.mapper(state), props => this.render(props));
     }
     dispose() {
         AvatarView.removeAvatar(this.headerAvatar);
+        this.dropdown.dispose();
         this.connectListener.unbind();
         this.el.remove();
     }
@@ -1121,9 +1135,12 @@ export class CheckboxView extends helpers.TypedEventEmitter {
 }
 class DropdownView {
     constructor(props) {
+        const menuClassName = helpers.classNames("dropdown-menu", {
+            "dropdown-menu--align-right": props.menuContentAlignRight
+        });
         this.el = dom.createEl("div", { className: "dropdown" }, [
             props.content,
-            dom.createEl("div", { className: "dropdown-menu" }, props.menuContent)
+            dom.createEl("div", { className: menuClassName }, props.menuContent)
         ]);
         this.listeners = new helpers.Listeners(dom.addListener(this.el, "mouseenter", () => this.handleMouseEnter()), dom.addListener(this.el, "mouseleave", () => this.handleMouseLeave()));
     }
