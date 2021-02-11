@@ -20,7 +20,7 @@ import { Store } from "./store.js";
 import { RTM, Auth, Storage, ChatRouter, WebAPI } from "./services.js";
 import { CharRouteManager } from "./chat-route-manager.js";
 import {
-  Disposable,
+  IDisposable,
   Listeners,
   ErrorWithType,
   TypedEventEmitter,
@@ -50,7 +50,7 @@ interface APIEvents {
 
 export const $API = createInjector<API>()
 
-export class API extends TypedEventEmitter<APIEvents> implements Disposable {
+export class API extends TypedEventEmitter<APIEvents> implements IDisposable {
   rtm?: RTM
   rtmListeners: Listeners
   auth: Auth
