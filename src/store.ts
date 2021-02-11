@@ -1,5 +1,5 @@
 import { Chat, License, Message, MyProfile, RoutingStatus, SneakPeek, Thread, User } from "./types"
-import { createInjector, IListener, shallowEqual, mergeMessages, Disposable } from "./helpers.js"
+import { createInjector, IListener, shallowEqual, mergeMessages, IDisposable } from "./helpers.js"
 
 export interface State {
   chatIds: string[]
@@ -121,7 +121,7 @@ type Actions = setChatsAction |
 
 export const $Store = createInjector<Store>()
 
-export class Store implements Disposable {
+export class Store implements IDisposable {
   protected state: State
   protected listeners: Array<Function>
   protected isDispatching: boolean
