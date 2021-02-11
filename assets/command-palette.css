@@ -1,0 +1,59 @@
+.command-palette-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1010;
+}
+
+.command-palette {
+  position: absolute;
+  top: 5%;
+  left: 50%;
+  transform: translate(-50%, 0);
+  background: var(--main-bg-color);
+  box-shadow: 1px 1px 3px 1px rgb(0 0 0 / 40%);
+  min-width: 400px;
+}
+
+.command-palette-header {
+  position: relative;
+  padding: 4px;
+}
+
+.command-palette-input {
+  width: 100%;
+  display: block;
+  border: 1px solid var(--border-color);
+  padding: 6px 4px;
+  color: var(--main-text-color);
+  background-color: var(--active-bg-color);
+}
+
+.command-palette-body {
+  position: relative;
+}
+
+.command-palette-list {
+  position: relative;
+  max-height: 250px;
+  overflow: auto;
+}
+
+.command-palette-item {
+  display: block;
+  width: 100%;
+  padding: 4px 8px;
+  color: var(--main-text-color);
+  cursor: pointer;
+  border: none;
+  background: none;
+  text-align: left;
+}
+
+.command-palette-item.selected,
+.command-palette-item:hover,
+.command-palette-item:focus {
+  background-color: var(--active-bg-color);
+}
