@@ -62,6 +62,15 @@ button {
   cursor: pointer;
 }
 
+input {
+  font-size: 1rem;
+  border-radius: 0;
+}
+
+input:focus {
+  outline: none;
+}
+
 .text-primary {
   color: var(--main-text-color);
 }

@@ -1,22 +1,20 @@
 import * as dom from "./dom.js";
 import * as helpers from "./helpers.js";
 import { $Store, State, Store } from "./store.js";
-import { Chat, ChatRoute, Customer, CustomerLastVisit, CustomerStatistics, Fields, Geolocation, Message, MyProfile, RoutingStatus, User, UserCustomer, VisitedPage } from "./types.js";
+import { Chat, ChatRoute, CustomerLastVisit, CustomerStatistics, Fields, Geolocation, Message, MyProfile, RoutingStatus, User, UserCustomer, VisitedPage } from "./types.js";
 import { ReverseScroll } from "./reverse-scroll.js";
 import { $API, API } from "./api.js";
 import { getAccountsUrl } from "./config.js";
 import { $CharRouteManager } from "./chat-route-manager.js";
 import { $LazyConnect } from "./lazy-connect.js";
 
-export class GridView implements helpers.Disposable {
+export class GridView implements helpers.IDisposable {
   el: Element
-  sidebar: GridSidebarView
   main: MainView
+  sidebar: GridSidebarView
 
   constructor() {
-    this.el = dom.createEl("div", {
-      className: "grid"
-    }, [
+    this.el = dom.createEl("div", { className: "grid" }, [
       (this.sidebar = new GridSidebarView()).el,
       (this.main = new MainView()).el
     ])
@@ -30,7 +28,7 @@ export class GridView implements helpers.Disposable {
   }
 }
 
-export class GridSidebarView implements helpers.Disposable {
+export class GridSidebarView implements helpers.IDisposable {
   el: Element
   header: HeaderView
   chatsList: ChatsListView
@@ -56,7 +54,7 @@ interface HeaderViewConnectProps {
   myRoutingStatus: RoutingStatus | null
 }
 
-export class HeaderView implements helpers.Disposable {
+export class HeaderView implements helpers.IDisposable {
   store: Store
   api: API
   el: Element
@@ -65,8 +63,8 @@ export class HeaderView implements helpers.Disposable {
   dropdown: DropdownView
   profile: Element
   search: Element
-  storeListener: helpers.Listener
-  routingListener: helpers.Listener
+  storeListener: helpers.IListener
+  routingListener: helpers.IListener
 
   constructor(store = $Store(), api = $API()) {
     this.store = store
@@ -179,10 +177,10 @@ interface ChatsListConnectedProps {
   chatIds: string[],
 }
 
-export class ChatsListView implements helpers.Disposable {
+export class ChatsListView implements helpers.IDisposable {
   el: Element
   chatsListItems: Map<string, ChatsListItemView>
-  storeListener: helpers.Listener
+  storeListener: helpers.IListener
 
   constructor(store = $Store()) {
     this.chatsListItems = new Map()
@@ -258,7 +256,7 @@ interface ChatsListItemConnectedProps {
   selectedChatId: string | null
 }
 
-export class ChatsListItemView implements helpers.Disposable {
+export class ChatsListItemView implements helpers.IDisposable {
   el: Element
   chatRoute: ChatRoute | void
   itemAvatarEl: HTMLDivElement
@@ -266,9 +264,9 @@ export class ChatsListItemView implements helpers.Disposable {
   chatTitle: Element
   chatMeta: Element
   chatSubtitle: Element
-  storeListener: helpers.Listener
-  clickListener: helpers.Listener
-  chatRouteListener: helpers.Listener
+  storeListener: helpers.IListener
+  clickListener: helpers.IListener
+  chatRouteListener: helpers.IListener
   connectedProps?: ChatsListItemConnectedProps
 
   constructor(
@@ -366,7 +364,7 @@ export class ChatsListItemView implements helpers.Disposable {
 }
 
 
-export class MainView implements helpers.Disposable {
+export class MainView implements helpers.IDisposable {
   el: Element
   chatFeed: ChatsView
 
@@ -387,11 +385,11 @@ interface ChatsViewConnectedProps {
   selectedChatId: string | null
 }
 
-export class ChatsView implements helpers.Disposable {
+export class ChatsView implements helpers.IDisposable {
   el: Element
   lruCache: helpers.LRUCache<ChatView>
-  cacheListener: helpers.Listener
-  storeListener: helpers.Listener
+  cacheListener: helpers.IListener
+  storeListener: helpers.IListener
 
   constructor(store = $Store()) {
     this.lruCache = new helpers.LRUCache(10)
@@ -461,7 +459,7 @@ interface ChatViewProps {
   chatId: string
 }
 
-export class ChatView implements helpers.Disposable {
+export class ChatView implements helpers.IDisposable {
   chatId: string
   el: Element
   chat: ChatFeedView
@@ -505,7 +503,7 @@ interface ChatFeedViewProps {
   chatId: string
 }
 
-export class ChatFeedView implements helpers.Disposable {
+export class ChatFeedView implements helpers.IDisposable {
   el: Element
   chatHeader: ChatHeaderView
   chatBody: ChatBodyView
@@ -544,12 +542,12 @@ interface ChatHeaderViewRenderProps {
   user: User | void
 }
 
-export class ChatHeaderView implements helpers.Disposable {
+export class ChatHeaderView implements helpers.IDisposable {
   el: HTMLDivElement
   headerAvatar: HTMLDivElement
   headerTitle: HTMLDivElement
   dropdown: DropdownView
-  connectListener: helpers.Listener
+  connectListener: helpers.IListener
 
   constructor(protected props: ChatHeaderViewProps, lazyConnect = $LazyConnect()) {
     this.el = dom.createEl("div", { className: "chat-header" }, [
@@ -616,13 +614,13 @@ interface ChatBodyViewConnectedProps {
   myProfileId?: string
 }
 
-export class ChatBodyView implements helpers.Disposable {
+export class ChatBodyView implements helpers.IDisposable {
   el: Element
   props: ChatBodyViewProps
   messages: Map<string, MessageView>
   messagesEl: Element
   reverseScroll: ReverseScroll
-  storeListener: helpers.Listener
+  storeListener: helpers.IListener
 
   constructor(props: ChatBodyViewProps, store = $Store()) {
     this.messages = new Map()
@@ -754,7 +752,7 @@ interface ComposerViewProps {
   chatId: string
 }
 
-export class ComposerView implements helpers.Disposable {
+export class ComposerView implements helpers.IDisposable {
   el: HTMLDivElement
   actions: Element
   inputContainer: Element
@@ -891,7 +889,7 @@ export interface MessageViewProps {
   messageMetaState: MessageMetaState | void
 }
 
-export class MessageView implements helpers.Disposable {
+export class MessageView implements helpers.IDisposable {
   el: Element
   avatar?: AvatarView
   textEl?: HTMLSpanElement
@@ -1124,7 +1122,7 @@ interface MessageMetaViewProps {
   state: MessageMetaState
 }
 
-class MessageMetaView implements helpers.Disposable {
+class MessageMetaView implements helpers.IDisposable {
   el: HTMLDivElement
 
   constructor(props: MessageMetaViewProps) {
@@ -1163,7 +1161,7 @@ interface DetailsViewConnProps {
   user: User | void
 }
 
-export class CustomerDetailsView implements helpers.Disposable {
+export class CustomerDetailsView implements helpers.IDisposable {
   el: HTMLDivElement
   detailsAvatar: HTMLDivElement
   name: HTMLDivElement
@@ -1179,7 +1177,7 @@ export class CustomerDetailsView implements helpers.Disposable {
   lastPagesRow: HTMLDivElement
   lastPagesList: HTMLDListElement
   connProps: DetailsViewConnProps
-  storeListener: helpers.Listener
+  storeListener: helpers.IListener
 
   constructor(
     protected props: DetailsViewProps,
@@ -1355,7 +1353,7 @@ export class CustomerDetailsView implements helpers.Disposable {
       .data(data, (d, i) => i)
       .join(enter, update, exit)
 
-    function enter(enterNode: dom.EnterNode<string>, i: number) {
+    function enter(enterNode: dom.EnterNode<string>, d: string, i: number) {
       enterNode.append(dom.createEl(i % 2 ? "dd" : "dt", { textContent: enterNode.d }))
     }
 
@@ -1375,7 +1373,7 @@ interface AvatarProps {
   src?: string
 }
 
-export class AvatarView implements helpers.Disposable {
+export class AvatarView implements helpers.IDisposable {
   static avatars = new WeakMap<HTMLElement, AvatarView>()
 
   static renderAvatar(container: HTMLElement, props: AvatarProps) {
@@ -1577,12 +1575,12 @@ interface CheckboxViewEvents {
   change(event: CheckboxChangeEvent): void
 }
 
-export class CheckboxView extends helpers.TypedEventEmitter<CheckboxViewEvents> implements helpers.Disposable {
+export class CheckboxView extends helpers.TypedEventEmitter<CheckboxViewEvents> implements helpers.IDisposable {
   el: Element
   input: HTMLInputElement
   label: Element
-  changeListener: helpers.Listener
-  clickListener: helpers.Listener
+  changeListener: helpers.IListener
+  clickListener: helpers.IListener
 
   constructor(props: CheckboxViewProps) {
     super()
@@ -1629,7 +1627,7 @@ interface DropdownViewProps {
   menuContentAlignRight?: boolean
 }
 
-class DropdownView implements helpers.Disposable {
+class DropdownView implements helpers.IDisposable {
   el: Element
   timerId?: number
   listeners: helpers.Listeners

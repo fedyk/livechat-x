@@ -8,9 +8,7 @@ import { $CharRouteManager } from "./chat-route-manager.js";
 import { $LazyConnect } from "./lazy-connect.js";
 export class GridView {
     constructor() {
-        this.el = dom.createEl("div", {
-            className: "grid"
-        }, [
+        this.el = dom.createEl("div", { className: "grid" }, [
             (this.sidebar = new GridSidebarView()).el,
             (this.main = new MainView()).el
         ]);
@@ -941,7 +939,7 @@ export class CustomerDetailsView {
         dom.selectAll(container)
             .data(data, (d, i) => i)
             .join(enter, update, exit);
-        function enter(enterNode, i) {
+        function enter(enterNode, d, i) {
             enterNode.append(dom.createEl(i % 2 ? "dd" : "dt", { textContent: enterNode.d }));
         }
         function update(updateNode) {
