@@ -6,12 +6,12 @@ import { $Store, State, Store } from "./store.js"
 import { $CharRouteManager, CharRouteManager } from "./chat-route-manager.js"
 import { parseQueryParams } from "./parsers.js"
 import { parseAccountsCredentials } from "./parsers.js"
-import { Disposable, ErrorWithType, Listeners } from "./helpers.js"
+import { IDisposable, ErrorWithType, Listeners } from "./helpers.js"
 import { GridView } from "./views.js"
 import { $LazyConnect, LazyConnect } from "./lazy-connect.js"
 import * as dom from "./dom.js"
 
-export class App implements Disposable {
+export class App implements IDisposable {
   auth: Auth
   chatRouter: ChatRouter
   chatRouteManager: CharRouteManager

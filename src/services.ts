@@ -4,7 +4,7 @@ import {
   MyProfile
 } from "./types.js";
 import {
-  Disposable,
+  IDisposable,
   TypedEventEmitter,
   AbortError,
   ErrorWithType,
@@ -54,7 +54,7 @@ interface RTMAsyncRequests {
   }
 }
 
-export class RTM extends TypedEventEmitter<RTMEvents> implements Disposable {
+export class RTM extends TypedEventEmitter<RTMEvents> implements IDisposable {
   static PING_PONG_INTERVAL = 15 * 1000
   static PONG_WAITING_INTERVAL = 5 * 1000
   static MANUAL_CLOSE = 4000
@@ -285,7 +285,7 @@ export interface ChatRouterEvents {
   routeChange(t: ChatRouterTransition): void
 }
 
-export class ChatRouter extends TypedEventEmitter<ChatRouterEvents> implements Disposable {
+export class ChatRouter extends TypedEventEmitter<ChatRouterEvents> implements IDisposable {
   counter = 0
   timerId?: number
   transitions = new Map<string, ChatRouterTransition>()

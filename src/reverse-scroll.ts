@@ -42,11 +42,11 @@ const resizeObserver = new ResizeObserver(function(entries) {
 
 const reverseScrolls = new WeakMap<Element, ReverseScroll>()
 
-export class ReverseScroll implements helpers.Disposable {
+export class ReverseScroll implements helpers.IDisposable {
   scrollEl: Element
   contentContainerEl: Element
   isStickyToBottom: boolean
-  scrollListener: helpers.Listener
+  scrollListener: helpers.IListener
   timerId?: number
   
   constructor(scrollEl: Element, contentContainerEl: Element) {

@@ -1,5 +1,5 @@
 import { Chat, License, Message, MyProfile, RoutingStatus, SneakPeek, Thread, User } from "./types"
-import { createInjector, Listener, shallowEqual, mergeMessages, Disposable } from "./helpers.js"
+import { createInjector, IListener, shallowEqual, mergeMessages, Disposable } from "./helpers.js"
 
 export interface State {
   chatIds: string[]
@@ -243,7 +243,7 @@ export class Store implements Disposable {
     return this.state
   }
 
-  subscribe(listener: Function): Listener {
+  subscribe(listener: Function): IListener {
     if (typeof listener !== "function") {
       throw new Error("listener should be executable")
     }

@@ -1,9 +1,9 @@
 import { Store, State } from "./store.js";
-import { createInjector, Disposable, Listener, shallowEqual } from "./helpers.js";
+import { createInjector, IDisposable, IListener, shallowEqual } from "./helpers.js";
 
 export const $LazyConnect = createInjector<LazyConnect>()
 
-export class LazyConnect implements Disposable {
+export class LazyConnect implements IDisposable {
   protected prevState?: State
   protected animationFrameId?: number
   protected lazyListeners: Array<(state: State) => void>
@@ -35,7 +35,7 @@ export class LazyConnect implements Disposable {
    * // cleanup
    * connection.unbind()
    */
-  connect<T = {}>(mapStateToProps: (state: State) => T, connectListener: (data: T) => void): Listener {
+  connect<T = {}>(mapStateToProps: (state: State) => T, connectListener: (data: T) => void): IListener {
     if (this.isDisposed === true) {
       throw new Error("Can't connect to disposed instance of LazyConnect")
     }

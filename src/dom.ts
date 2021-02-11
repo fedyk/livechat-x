@@ -1,10 +1,10 @@
-import { Disposable, Listener } from "./helpers.js"
+import { IDisposable, IListener } from "./helpers.js"
 
 /**
  * DOM
  * The collection of utils for dealing with DOM
  */
-export class DomListener implements Disposable, Listener {
+export class DomListener implements IDisposable, IListener {
   private handler: (e: any) => void;
   private node: EventTarget;
   private readonly type: string;
@@ -155,9 +155,9 @@ export class DataBinder<T> {
   }
 
   join(
-    enter: (node: EnterNode<T>, i: number) => void | void,
-    update: (node: ElementWithDatum<T>) => void | void,
-    exit: (node: ElementWithDatum<T>) => void | void
+    enter: (node: EnterNode<T>, d: T, i: number) => void | void,
+    update: (node: ElementWithDatum<T>, d: T, i: number) => void | void,
+    exit: (node: ElementWithDatum<T>, d: T, i: number) => void | void
   ) {
     if (typeof enter === "function") {
       this.enter(enter)
@@ -193,36 +193,36 @@ export class DataBinder<T> {
     }
   }
 
-  protected enter(cb: (node: EnterNode<T>, i: number) => void) {
+  protected enter(cb: (node: EnterNode<T>, d: T, i: number) => void) {
     for (let i = 0; i < this.enterGroup.length; i++) {
       const node = this.enterGroup[i]
 
       if (node) {
-        cb(this.enterGroup[i], i)
+        cb(node, node.d, i)
       }
     }
 
     return this
   }
 
-  protected update(cb: (node: ElementWithDatum<T>) => void) {
+  protected update(cb: (node: ElementWithDatum<T>, d: T, i: number) => void) {
     for (let i = 0; i < this.updateGroup.length; i++) {
       const node = this.updateGroup[i]
 
       if (node) {
-        cb(this.updateGroup[i])
+        cb(node, node.__data__ as T, i)
       }
     }
 
     return this
   }
 
-  protected exit(cb: (node: ElementWithDatum<T>) => void) {
+  protected exit(cb: (node: ElementWithDatum<T>, d: T, i: number) => void) {
     for (let i = 0; i < this.exitGroup.length; i++) {
       const node = this.exitGroup[i]
 
       if (node) {
-        cb(this.exitGroup[i])
+        cb(node, node.__data__ as T, i)
       }
     }
 

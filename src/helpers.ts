@@ -1,10 +1,10 @@
 import { Chat, Thread, ChatRoute, Message, SneakPeek, SneakPeekMessage, Customer, User, Geolocation } from "./types"
 
-export interface Disposable {
+export interface IDisposable {
   dispose(): void
 }
 
-export interface Listener {
+export interface IListener {
   unbind(): void;
 }
 
@@ -12,13 +12,13 @@ export interface Listener {
  * Home for active listeners
  */
 export class Listeners {
-  listeners: Listener[]
+  listeners: IListener[]
 
-  constructor(...listener: Listener[]) {
+  constructor(...listener: IListener[]) {
     this.listeners = listener
   }
 
-  register(...listener: Listener[]) {
+  register(...listener: IListener[]) {
     this.listeners.push(...listener)
   }
 
@@ -46,7 +46,7 @@ export class TypedEventEmitter<T> {
     this.listeners = new Map()
   }
 
-  addListener<K extends keyof T>(event: K, listener: (...args: TypedArguments<T[K]>) => void): Listener {
+  addListener<K extends keyof T>(event: K, listener: (...args: TypedArguments<T[K]>) => void): IListener {
     let listeners = this.listeners.get(event)
 
     if (typeof listener !== "function") {
@@ -144,7 +144,7 @@ interface LRUCacheEvents<T> {
   removed(item: T): void
 }
 
-export class LRUCache<T> extends TypedEventEmitter<LRUCacheEvents<T>> implements Disposable {
+export class LRUCache<T> extends TypedEventEmitter<LRUCacheEvents<T>> implements IDisposable {
   max: number
   cache: Map<string, T>
 

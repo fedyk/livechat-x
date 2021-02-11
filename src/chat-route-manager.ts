@@ -1,5 +1,5 @@
 import { Store } from "./store.js"
-import { createInjector, Disposable, getChatRoute, Listener, unique } from "./helpers.js"
+import { createInjector, IDisposable, getChatRoute, IListener, unique } from "./helpers.js"
 import { ChatRouter, ChatRouterTransition } from "./services.js"
 import { ChatRoute } from "./types.js"
 
@@ -9,11 +9,11 @@ interface Subscriber {
 
 export const $CharRouteManager = createInjector<CharRouteManager>()
 
-export class CharRouteManager implements Disposable {
+export class CharRouteManager implements IDisposable {
   store: Store
   chatRouter: ChatRouter
   routeChangeSubscribers: Map<string, Subscriber[]>
-  routeChangeListener: Listener
+  routeChangeListener: IListener
 
   constructor(store: Store, chatRouter: ChatRouter) {
     this.store = store
@@ -61,7 +61,7 @@ export class CharRouteManager implements Disposable {
     }
   }
 
-  subscribe(chatId: string, subscriber: Subscriber): Listener {
+  subscribe(chatId: string, subscriber: Subscriber): IListener {
     const subscribers = this.routeChangeSubscribers.get(chatId)
     const chatRoute = this.getChatRoute(chatId)
 
