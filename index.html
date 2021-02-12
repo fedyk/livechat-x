@@ -12,23 +12,20 @@
 
 <body>
   <div id="app"></div>
-  <script type="module" src="./modules/config.js"></script>
-  <script type="module" src="./modules/helpers.js"></script>
-  <script type="module" src="./modules/parsers.js"></script>
-  <script type="module" src="./modules/dom.js"></script>
-  <script type="module" src="./modules/store.js"></script>
-  <script type="module" src="./modules/services.js"></script>
-  <script type="module" src="./modules/chat-route-manager.js"></script>
-  <script type="module" src="./modules/api.js"></script>
-  <script type="module" src="./modules/reverse-scroll.js"></script>
-  <script type="module" src="./modules/views.js"></script>
-  <script type="module" src="./modules/app.js"></script>
-  <script type="module">
-    import { App } from "./modules/app.js"
-    // import * as demo from "./modules/demo.js"
-
-    // new App(initialState).bootstrap()
-    new App().bootstrap()
+  <script src="./modules/config.js"></script>
+  <script src="./modules/helpers.js"></script>
+  <script src="./modules/parsers.js"></script>
+  <script src="./modules/dom.js"></script>
+  <script src="./modules/store.js"></script>
+  <script src="./modules/lazy-connect.js"></script>
+  <script src="./modules/services.js"></script>
+  <script src="./modules/chat-route-manager.js"></script>
+  <script src="./modules/api.js"></script>
+  <script src="./modules/reverse-scroll.js"></script>
+  <script src="./modules/views.js"></script>
+  <script src="./modules/app.js"></script>
+  <script>
+    new app.App().bootstrap()
   </script>
 </body>
 

@@ -4,13 +4,18 @@ const { spawn } = require("child_process")
 const { getCwd } = require("./helpers")
 
 function watchTsc() {
-  const process = spawn("npx", ["tsc", "--watch", "--preserveWatchOutput"], {
+  const tsc = spawn("npx", ["tsc", "--watch", "--preserveWatchOutput"], {
     cwd: getCwd()
   })
 
-  process.stdout.on("data", data => console.log(data + ""))
-  process.stderr.on("data", data => console.error(data + ""))
-  process.on("close", (code) => console.log(`"tsc --watch" exited with code ${code}`));
+  tsc.stdout.pipe(process.stdout)
+  tsc.stderr.pipe(process.stderr)
+
+  tsc.on("close", function (code) {
+    tsc.stdout.unpipe(process.stdout)
+    tsc.stderr.unpipe(process.stderr)
+    console.log(`"tsc --watch" exited with code ${code}`)
+  })
 }
 
 module.exports.watchTsc = watchTsc

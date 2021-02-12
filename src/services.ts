@@ -1,457 +1,455 @@
-import {
-  ChatRoute,
-  Credentials,
-  MyProfile
-} from "./types.js";
-import {
-  IDisposable,
-  TypedEventEmitter,
-  AbortError,
-  ErrorWithType,
-  Listeners
-} from "./helpers.js";
-import { parseScopes } from "./parsers.js"
+namespace app.services {
+  import ChatRoute = app.types.ChatRoute
+  import Credentials = app.types.Credentials
+  import MyProfile = app.types.MyProfile
+  import IDisposable = app.helpers.IDisposable
+  import TypedEventEmitter = app.helpers.TypedEventEmitter
+  import AbortError = app.helpers.AbortError
+  import ErrorWithType = app.helpers.ErrorWithType
+  import Listeners = app.helpers.Listeners
+  import parseScopes = app.parsers.parseScopes
 
-/**
- * Auth and related staff
- */
-export class Auth {
-  credentials?: Credentials
+  /**
+   * Auth and related staff
+   */
+  export class Auth {
+    credentials?: Credentials
 
-  constructor(credentials?: Credentials) {
-    this.credentials = credentials
-  }
-
-  setCredentials(credentials: Credentials) {
-    this.credentials = credentials
-  }
-
-  getAccessToken() {
-    if (!this.credentials || !this.credentials.accessToken) {
-      throw new Error("Credential are missed. Please refresh page or report a problem")
+    constructor(credentials?: Credentials) {
+      this.credentials = credentials
     }
 
-    return this.credentials.accessToken
-  }
-
-  getRegion() {
-    return this.credentials?.accessToken?.split(":")[0] ?? "dal"
-  }
-}
-
-interface RTMEvents {
-  open(): void
-  close(manual: boolean): void
-  error(err: Error): void
-  push(data: any): void
-}
-
-interface RTMAsyncRequests {
-  [requestId: string]: {
-    resolve(value: any): void
-    reject(err: Error): void
-    listeners: Listeners
-  }
-}
-
-export class RTM extends TypedEventEmitter<RTMEvents> implements IDisposable {
-  static PING_PONG_INTERVAL = 15 * 1000
-  static PONG_WAITING_INTERVAL = 5 * 1000
-  static MANUAL_CLOSE = 4000
-  static REQUEST_COUNTER = 1
-
-  ws: WebSocket
-  pingTimerId?: number
-  pongTimerId?: number
-  asyncRequests: RTMAsyncRequests
-
-  constructor(url: string) {
-    super()
-    this.ws = new WebSocket(url)
-    this.asyncRequests = {}
-    this.ws.addEventListener("open", this.handleOpen)
-    this.ws.addEventListener("close", this.handleClose)
-    this.ws.addEventListener("error", this.handleError)
-    this.ws.addEventListener("message", this.handleMessage)
-  }
-
-  dispose() {
-    this.ws.removeEventListener("open", this.handleOpen)
-    this.ws.removeEventListener("close", this.handleClose)
-    this.ws.removeEventListener("error", this.handleError)
-    this.ws.removeEventListener("message", this.handleMessage)
-  }
-
-  close() {
-    this.ws.close(RTM.MANUAL_CLOSE)
-  }
-
-  handleOpen = () => {
-    this.emit("open")
-    this.pong()
-  }
-
-  handleClose = (event: CloseEvent) => {
-    this.emit("close", event.code === RTM.MANUAL_CLOSE)
-
-    // reject all pending requests
-    Object.keys(this.asyncRequests).forEach(requestId => {
-      this.rejectAsync(requestId, new Error("Request timeout"))
-    })
-  }
-
-  handleError = () => {
-    this.emit("error", new Error("websocket connection error"))
-  }
-
-  handleMessage = (event: MessageEvent) => {
-    let data: any
-
-    try {
-      data = JSON.parse(event.data)
-    }
-    catch (err) {
-      return this.emit("error", err)
+    setCredentials(credentials: Credentials) {
+      this.credentials = credentials
     }
 
-    // just handle pong
-    if (data && data.action === "ping") {
-      return this.pong()
-    }
-
-    if (data && data.type === "response") {
-      const requestId = data.request_id
-
-      if (!requestId) {
-        return this.emit("error", new Error(`RTM does not support responses with missed request_id: ${event.data}`))
+    getAccessToken() {
+      if (!this.credentials || !this.credentials.accessToken) {
+        throw new Error("Credential are missed. Please refresh page or report a problem")
       }
 
+      return this.credentials.accessToken
+    }
+
+    getRegion() {
+      return this.credentials?.accessToken?.split(":")[0] ?? "dal"
+    }
+  }
+
+  interface RTMEvents {
+    open(): void
+    close(manual: boolean): void
+    error(err: Error): void
+    push(data: any): void
+  }
+
+  interface RTMAsyncRequests {
+    [requestId: string]: {
+      resolve(value: any): void
+      reject(err: Error): void
+      listeners: Listeners
+    }
+  }
+
+  export class RTM extends TypedEventEmitter<RTMEvents> implements IDisposable {
+    static PING_PONG_INTERVAL = 15 * 1000
+    static PONG_WAITING_INTERVAL = 5 * 1000
+    static MANUAL_CLOSE = 4000
+    static REQUEST_COUNTER = 1
+
+    ws: WebSocket
+    pingTimerId?: number
+    pongTimerId?: number
+    asyncRequests: RTMAsyncRequests
+
+    constructor(url: string) {
+      super()
+      this.ws = new WebSocket(url)
+      this.asyncRequests = {}
+      this.ws.addEventListener("open", this.handleOpen)
+      this.ws.addEventListener("close", this.handleClose)
+      this.ws.addEventListener("error", this.handleError)
+      this.ws.addEventListener("message", this.handleMessage)
+    }
+
+    dispose() {
+      this.ws.removeEventListener("open", this.handleOpen)
+      this.ws.removeEventListener("close", this.handleClose)
+      this.ws.removeEventListener("error", this.handleError)
+      this.ws.removeEventListener("message", this.handleMessage)
+    }
+
+    close() {
+      this.ws.close(RTM.MANUAL_CLOSE)
+    }
+
+    handleOpen = () => {
+      this.emit("open")
+      this.pong()
+    }
+
+    handleClose = (event: CloseEvent) => {
+      this.emit("close", event.code === RTM.MANUAL_CLOSE)
+
+      // reject all pending requests
+      Object.keys(this.asyncRequests).forEach(requestId => {
+        this.rejectAsync(requestId, new Error("Request timeout"))
+      })
+    }
+
+    handleError = () => {
+      this.emit("error", new Error("websocket connection error"))
+    }
+
+    handleMessage = (event: MessageEvent) => {
+      let data: any
+
+      try {
+        data = JSON.parse(event.data)
+      }
+      catch (err) {
+        return this.emit("error", err)
+      }
+
+      // just handle pong
+      if (data && data.action === "ping") {
+        return this.pong()
+      }
+
+      if (data && data.type === "response") {
+        const requestId = data.request_id
+
+        if (!requestId) {
+          return this.emit("error", new Error(`RTM does not support responses with missed request_id: ${event.data}`))
+        }
+
+        const asyncRequest = this.asyncRequests[requestId]
+
+        if (!asyncRequest) {
+          return this.emit("error", new Error(`Handler for incoming rtm response is missed: ${event.data}`))
+        }
+
+        if (Boolean(data.success)) {
+          asyncRequest.resolve(data.payload || {})
+        }
+        else {
+          const message = data?.payload?.error?.message || "Failed to parse response"
+          const type = data.payload.error.type ?? "response_parse_error"
+
+          asyncRequest.reject(new ErrorWithType(message, type))
+        }
+
+        asyncRequest.listeners.unbindAll()
+        delete this.asyncRequests[requestId]
+      }
+
+      if (data?.type === "push") {
+        this.emit("push", data || {})
+      }
+    }
+
+    perform(action: string, payload?: any) {
+      const requestId = `request_${++RTM.REQUEST_COUNTER}`
+
+      return this.ws.send(JSON.stringify({ request_id: requestId, action: action, payload: payload })), requestId
+    }
+
+    performAsync<T = any>(action: string, payload?: any, abort?: AbortSignal): Promise<T> {
+      return new Promise((resolve, reject) => {
+
+        // request was already aborted
+        if (abort?.aborted === true) {
+          return reject(new AbortError("Request has aborted"))
+        }
+
+        // send the request to server
+        const requestId = this.perform(action, payload)
+        const listeners = new Listeners()
+
+        // listen for abort signal
+        if (abort) {
+          const handleAbort = () => {
+            this.rejectAsync(requestId, new AbortError("Request has aborted"))
+          }
+
+          abort.addEventListener("abort", handleAbort)
+
+          listeners.register({
+            unbind: () => abort.removeEventListener("abort", handleAbort)
+          })
+        }
+
+        this.asyncRequests[requestId] = {
+          resolve: resolve,
+          reject: reject,
+          listeners: listeners,
+        }
+      })
+    }
+
+    rejectAsync(requestId: string, err?: Error) {
       const asyncRequest = this.asyncRequests[requestId]
 
       if (!asyncRequest) {
-        return this.emit("error", new Error(`Handler for incoming rtm response is missed: ${event.data}`))
+        return
       }
 
-      if (Boolean(data.success)) {
-        asyncRequest.resolve(data.payload || {})
-      }
-      else {
-        const message = data?.payload?.error?.message || "Failed to parse response"
-        const type = data.payload.error.type ?? "response_parse_error"
-
-        asyncRequest.reject(new ErrorWithType(message, type))
-      }
-
+      asyncRequest.reject(err ?? new Error("Request was rejected"))
       asyncRequest.listeners.unbindAll()
       delete this.asyncRequests[requestId]
     }
 
-    if (data?.type === "push") {
-      this.emit("push", data || {})
+    ping() {
+      this.perform("ping")
+
+      clearTimeout(this.pingTimerId)
+      clearTimeout(this.pongTimerId)
+
+      // schedule next reconnect
+      this.pongTimerId = setTimeout(() => this.ws.close, RTM.PONG_WAITING_INTERVAL)
+    }
+
+    pong() {
+      clearTimeout(this.pingTimerId)
+      clearTimeout(this.pongTimerId)
+      this.pingTimerId = setTimeout(() => this.ping(), RTM.PING_PONG_INTERVAL);
     }
   }
 
-  perform(action: string, payload?: any) {
-    const requestId = `request_${++RTM.REQUEST_COUNTER}`
+  /**
+   * Simple client to perform Web API calls to agent-api
+   */
+  export class WebAPI {
+    auth: Auth;
 
-    return this.ws.send(JSON.stringify({ request_id: requestId, action: action, payload: payload })), requestId
-  }
+    constructor(auth: Auth) {
+      this.auth = auth
+    }
 
-  performAsync<T = any>(action: string, payload?: any, abort?: AbortSignal): Promise<T> {
-    return new Promise((resolve, reject) => {
-
-      // request was already aborted
-      if (abort?.aborted === true) {
-        return reject(new AbortError("Request has aborted"))
+    performAsync<T = {}>(action: string, payload: object | null, options?: Partial<RequestInit>): Promise<T> {
+      const url = "https://api.livechatinc.com/v3.3/agent/action/send_event" + action;
+      const accessToken = this.auth.getAccessToken()
+      const region = this.auth.getRegion()
+      const init = {
+        ...options,
+        body: JSON.stringify(payload),
+        method: "POST",
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          "X-Region": region
+        },
       }
 
-      // send the request to server
-      const requestId = this.perform(action, payload)
-      const listeners = new Listeners()
+      return fetch(url, init).then((response) => this.parseResponse<T>(response))
+    }
 
-      // listen for abort signal
-      if (abort) {
-        const handleAbort = () => {
-          this.rejectAsync(requestId, new AbortError("Request has aborted"))
-        }
+    protected parseResponse<T>(response: Response) {
+      if (response.ok === false) {
+        return response.json().then(function (json) {
+          const error = json?.error?.message ?? `Server responded with ${response.status} code`
+          const errorType = json?.error?.type
 
-        abort.addEventListener("abort", handleAbort)
-
-        listeners.register({
-          unbind: () => abort.removeEventListener("abort", handleAbort)
+          throw new ErrorWithType(error, errorType)
         })
       }
-
-      this.asyncRequests[requestId] = {
-        resolve: resolve,
-        reject: reject,
-        listeners: listeners,
+      else {
+        return response.json() as Promise<T>
       }
-    })
+    }
   }
 
-  rejectAsync(requestId: string, err?: Error) {
-    const asyncRequest = this.asyncRequests[requestId]
 
-    if (!asyncRequest) {
-      return
+  /**
+   * LiveChat platform does not have terms like my or queued chat.
+   * We have to gather information from few pushes and based on them determine 
+   * if chat is my or queued
+   */
+  export interface ChatRouterTransition {
+    chatId: string
+    finalChatRoute: ChatRoute
+    initialChatRoute: ChatRoute | void
+    counter: number
+    requesterId: string | void
+    lastUpdatedAt: number
+    history: any[] /** for debug */
+  }
+
+  export interface ChatRouterEvents {
+    transitionStart(t: ChatRouterTransition): void
+    transitionEnd(t: ChatRouterTransition): void
+    routeChange(t: ChatRouterTransition): void
+  }
+
+  export class ChatRouter extends TypedEventEmitter<ChatRouterEvents> implements IDisposable {
+    counter = 0
+    timerId?: number
+    transitions = new Map<string, ChatRouterTransition>()
+
+    constructor() {
+      super()
+      this.digest()
     }
 
-    asyncRequest.reject(err ?? new Error("Request was rejected"))
-    asyncRequest.listeners.unbindAll()
-    delete this.asyncRequests[requestId]
-  }
-
-  ping() {
-    this.perform("ping")
-
-    clearTimeout(this.pingTimerId)
-    clearTimeout(this.pongTimerId)
-
-    // schedule next reconnect
-    this.pongTimerId = setTimeout(() => this.ws.close, RTM.PONG_WAITING_INTERVAL)
-  }
-
-  pong() {
-    clearTimeout(this.pingTimerId)
-    clearTimeout(this.pongTimerId)
-    this.pingTimerId = setTimeout(() => this.ping(), RTM.PING_PONG_INTERVAL);
-  }
-}
-
-/**
- * Simple client to perform Web API calls to agent-api
- */
-export class WebAPI {
-  auth: Auth;
-
-  constructor(auth: Auth) {
-    this.auth = auth
-  }
-
-  performAsync<T = {}>(action: string, payload: object | null, options?: Partial<RequestInit>): Promise<T> {
-    const url = "https://api.livechatinc.com/v3.3/agent/action/send_event" + action;
-    const accessToken = this.auth.getAccessToken()
-    const region = this.auth.getRegion()
-    const init = {
-      ...options,
-      body: JSON.stringify(payload),
-      method: "POST",
-      headers: {
-        Accept: 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-        "X-Region": region
-      },
+    dispose() {
+      this.transitions.clear()
+      clearTimeout(this.timerId)
     }
 
-    return fetch(url, init).then((response) => this.parseResponse<T>(response))
-  }
+    setChatRoute(chatId: string, prevChatRoute: ChatRoute | void, nextChatRoute: ChatRoute, requesterId: string | void) {
+      let transition = this.transitions.get(chatId)
 
-  protected parseResponse<T>(response: Response) {
-    if (response.ok === false) {
-      return response.json().then(function (json) {
-        const error = json?.error?.message ?? `Server responded with ${response.status} code`
-        const errorType = json?.error?.type
+      if (!transition) {
+        this.transitions.set(chatId, transition = {
+          counter: this.counter,
+          chatId: chatId,
+          history: [
+            [prevChatRoute, nextChatRoute]
+          ],
+          requesterId: requesterId,
+          finalChatRoute: nextChatRoute,
+          initialChatRoute: prevChatRoute,
+          lastUpdatedAt: Date.now()
+        })
 
-        throw new ErrorWithType(error, errorType)
+        this.emit("transitionStart", transition)
+      }
+      else {
+        transition.finalChatRoute = nextChatRoute
+        transition.requesterId = requesterId || transition.requesterId
+        transition.history.push([prevChatRoute, nextChatRoute])
+        transition.lastUpdatedAt = Date.now()
+      }
+    }
+
+    digest() {
+      this.check()
+      this.timerId = setTimeout(() => this.digest(), 200)
+    }
+
+    tick() {
+      this.counter++
+      this.check()
+    }
+
+    check() {
+      const now = Date.now()
+
+      this.transitions.forEach((transition, chatId) => {
+        if (this.counter - transition.counter > 10) {
+          return this.finiteTransition(chatId)
+        }
+
+        if (now - transition.lastUpdatedAt >= 1000) {
+          return this.finiteTransition(chatId)
+        }
       })
     }
-    else {
-      return response.json() as Promise<T>
-    }
-  }
-}
 
+    finiteTransition(chatId: string) {
+      const transition = this.transitions.get(chatId)
 
-/**
- * LiveChat platform does not have terms like my or queued chat.
- * We have to gather information from few pushes and based on them determine 
- * if chat is my or queued
- */
-export interface ChatRouterTransition {
-  chatId: string
-  finalChatRoute: ChatRoute
-  initialChatRoute: ChatRoute | void
-  counter: number
-  requesterId: string | void
-  lastUpdatedAt: number
-  history: any[] /** for debug */
-}
-
-export interface ChatRouterEvents {
-  transitionStart(t: ChatRouterTransition): void
-  transitionEnd(t: ChatRouterTransition): void
-  routeChange(t: ChatRouterTransition): void
-}
-
-export class ChatRouter extends TypedEventEmitter<ChatRouterEvents> implements IDisposable {
-  counter = 0
-  timerId?: number
-  transitions = new Map<string, ChatRouterTransition>()
-
-  constructor() {
-    super()
-    this.digest()
-  }
-
-  dispose() {
-    this.transitions.clear()
-    clearTimeout(this.timerId)
-  }
-
-  setChatRoute(chatId: string, prevChatRoute: ChatRoute | void, nextChatRoute: ChatRoute, requesterId: string | void) {
-    let transition = this.transitions.get(chatId)
-
-    if (!transition) {
-      this.transitions.set(chatId, transition = {
-        counter: this.counter,
-        chatId: chatId,
-        history: [
-          [prevChatRoute, nextChatRoute]
-        ],
-        requesterId: requesterId,
-        finalChatRoute: nextChatRoute,
-        initialChatRoute: prevChatRoute,
-        lastUpdatedAt: Date.now()
-      })
-
-      this.emit("transitionStart", transition)
-    }
-    else {
-      transition.finalChatRoute = nextChatRoute
-      transition.requesterId = requesterId || transition.requesterId
-      transition.history.push([prevChatRoute, nextChatRoute])
-      transition.lastUpdatedAt = Date.now()
-    }
-  }
-
-  digest() {
-    this.check()
-    this.timerId = setTimeout(() => this.digest(), 200)
-  }
-
-  tick() {
-    this.counter++
-    this.check()
-  }
-
-  check() {
-    const now = Date.now()
-
-    this.transitions.forEach((transition, chatId) => {
-      if (this.counter - transition.counter > 10) {
-        return this.finiteTransition(chatId)
+      if (!transition) {
+        return
       }
 
-      if (now - transition.lastUpdatedAt >= 1000) {
-        return this.finiteTransition(chatId)
+      this.transitions.delete(chatId)
+
+      if (transition.initialChatRoute !== transition.finalChatRoute) {
+        this.emit("routeChange", transition)
       }
-    })
-  }
 
-  finiteTransition(chatId: string) {
-    const transition = this.transitions.get(chatId)
-
-    if (!transition) {
-      return
+      this.emit("transitionEnd", transition)
     }
 
-    this.transitions.delete(chatId)
+    cancelTransition(chatId: string) {
+      const transition = this.transitions.get(chatId)
 
-    if (transition.initialChatRoute !== transition.finalChatRoute) {
-      this.emit("routeChange", transition)
-    }
-
-    this.emit("transitionEnd", transition)
-  }
-
-  cancelTransition(chatId: string) {
-    const transition = this.transitions.get(chatId)
-
-    if (!transition) {
-      return
-    }
-
-    this.transitions.delete(chatId)
-    this.emit("transitionEnd", transition)
-  }
-
-  reset() {
-    this.transitions.forEach((transition, chatId) => this.cancelTransition(chatId))
-    this.transitions.clear()
-    this.counter = 0
-  }
-}
-
-export namespace Storage {
-  export function getItem(key: string) {
-    const value = localStorage.getItem(key)
-
-    if (value) {
-      try {
-        return JSON.parse(value)
+      if (!transition) {
+        return
       }
-      catch (err) {
-        return console.error(err)
+
+      this.transitions.delete(chatId)
+      this.emit("transitionEnd", transition)
+    }
+
+    reset() {
+      this.transitions.forEach((transition, chatId) => this.cancelTransition(chatId))
+      this.transitions.clear()
+      this.counter = 0
+    }
+  }
+
+  export namespace Storage {
+    export function getItem(key: string) {
+      const value = localStorage.getItem(key)
+
+      if (value) {
+        try {
+          return JSON.parse(value)
+        }
+        catch (err) {
+          return console.error(err)
+        }
       }
     }
-  }
 
-  export function setItem(key: string, value: any) {
-    return localStorage.setItem(key, JSON.stringify(value))
-  }
-
-  export function getCredentials(): Credentials | void {
-    const json = getItem("credentials")
-
-    if (!json) {
-      return
+    export function setItem(key: string, value: any) {
+      return localStorage.setItem(key, JSON.stringify(value))
     }
 
-    const accessToken = String(json.accessToken ?? "")
-    const expiredAt = Number(json.expiredAt ?? "")
-    const scopes = parseScopes(json.scopes)
+    export function getCredentials(): Credentials | void {
+      const json = getItem("credentials")
 
-    // invalid credentials
-    if (Number.isNaN(expiredAt)) {
-      return
+      if (!json) {
+        return
+      }
+
+      const accessToken = String(json.accessToken ?? "")
+      const expiredAt = Number(json.expiredAt ?? "")
+      const scopes = parseScopes(json.scopes)
+
+      // invalid credentials
+      if (Number.isNaN(expiredAt)) {
+        return
+      }
+
+      // credentials are expired, do not use them
+      if (expiredAt <= Date.now()) {
+        return
+      }
+
+      return {
+        accessToken,
+        expiredAt,
+        scopes,
+      }
     }
 
-    // credentials are expired, do not use them
-    if (expiredAt <= Date.now()) {
-      return
+    export function setCredentials(credentials: Credentials) {
+      return setItem("credentials", credentials)
     }
 
-    return {
-      accessToken,
-      expiredAt,
-      scopes,
+    export function getMyProfile(): MyProfile | void {
+      const data = getItem("my_profile")
+
+      if (!data) {
+        return
+      }
+
+      const id = String(data.id ?? "")
+      const name = String(data.name ?? "")
+      const email = String(data.email ?? "")
+      const avatar = String(data.avatar ?? "")
+
+      return {
+        id, name, email, avatar
+      }
     }
-  }
 
-  export function setCredentials(credentials: Credentials) {
-    return setItem("credentials", credentials)
-  }
-
-  export function getMyProfile(): MyProfile | void {
-    const data = getItem("my_profile")
-
-    if (!data) {
-      return
+    export function setMyProfile(myProfile: MyProfile) {
+      return setItem("my_profile", myProfile)
     }
-
-    const id = String(data.id ?? "")
-    const name = String(data.name ?? "")
-    const email = String(data.email ?? "")
-    const avatar = String(data.avatar ?? "")
-
-    return {
-      id, name, email, avatar
-    }
-  }
-
-  export function setMyProfile(myProfile: MyProfile) {
-    return setItem("my_profile", myProfile)
   }
 }

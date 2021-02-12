@@ -1,84 +1,90 @@
-import { Store, State } from "./store.js";
-import { createInjector, IDisposable, IListener, shallowEqual } from "./helpers.js";
+namespace app.services {
+  import Store = app.store.Store
+  import State = app.store.State
+  import createInjector = app.helpers.createInjector
+  import IDisposable = app.helpers.IDisposable
+  import IListener = app.helpers.IListener
+  import shallowEqual = app.helpers.shallowEqual
 
-export const $LazyConnect = createInjector<LazyConnect>()
+  export const $LazyConnect = createInjector<LazyConnect>()
 
-export class LazyConnect implements IDisposable {
-  protected prevState?: State
-  protected animationFrameId?: number
-  protected lazyListeners: Array<(state: State) => void>
-  protected isDisposed: boolean
+  export class LazyConnect implements IDisposable {
+    protected prevState?: State
+    protected animationFrameId?: number
+    protected lazyListeners: Array<(state: State) => void>
+    protected isDisposed: boolean
 
-  constructor(protected store: Store) {
-    this.lazyListeners = []
-    this.isDisposed = false
-    this.digest()
-  }
-
-  dispose() {
-    this.lazyListeners = []
-
-    if (this.animationFrameId) {
-      cancelAnimationFrame(this.animationFrameId)
+    constructor(protected store: Store) {
+      this.lazyListeners = []
+      this.isDisposed = false
+      this.digest()
     }
 
-    this.isDisposed = true
-  }
+    dispose() {
+      this.lazyListeners = []
 
-  /**
-   * @example
-   * const connection = lazyConnect.connect(
-   *   state => ({ user: state.users[userId] }),
-   *   data => this.userName = data.user.name
-   * )
-   * 
-   * // cleanup
-   * connection.unbind()
-   */
-  connect<T = {}>(mapStateToProps: (state: State) => T, connectListener: (data: T) => void): IListener {
-    if (this.isDisposed === true) {
-      throw new Error("Can't connect to disposed instance of LazyConnect")
-    }
-
-    let lastMappedData: T | void = void 0;
-
-    const unbind = () => {
-      this.lazyListeners = this.lazyListeners.filter(v => v !== lazyListener)
-    }
-
-    function lazyListener(state: State) {
-      const nextMappedData = mapStateToProps(state)
-
-      if (!shallowEqual(lastMappedData, nextMappedData)) {
-        connectListener(nextMappedData)
+      if (this.animationFrameId) {
+        cancelAnimationFrame(this.animationFrameId)
       }
 
-      lastMappedData = nextMappedData
+      this.isDisposed = true
     }
 
-    this.lazyListeners.push(lazyListener)
-
-    // first emit
-    lazyListener(this.store.getState())
-
-    return { unbind }
-  }
-
-
-  protected digest() {
-    const state = this.store.getState()
-    const count = this.lazyListeners.length
-
-    // no changes in store
-    if (this.prevState !== state) {
-      for (let i = 0; i < count; i++) {
-        this.lazyListeners[i](state)
+    /**
+     * @example
+     * const connection = lazyConnect.connect(
+     *   state => ({ user: state.users[userId] }),
+     *   data => this.userName = data.user.name
+     * )
+     * 
+     * // cleanup
+     * connection.unbind()
+     */
+    connect<T = {}>(mapStateToProps: (state: State) => T, connectListener: (data: T) => void): IListener {
+      if (this.isDisposed === true) {
+        throw new Error("Can't connect to disposed instance of LazyConnect")
       }
 
-      this.prevState = state
+      let lastMappedData: T | void = void 0;
+
+      const unbind = () => {
+        this.lazyListeners = this.lazyListeners.filter(v => v !== lazyListener)
+      }
+
+      function lazyListener(state: State) {
+        const nextMappedData = mapStateToProps(state)
+
+        if (!shallowEqual(lastMappedData, nextMappedData)) {
+          connectListener(nextMappedData)
+        }
+
+        lastMappedData = nextMappedData
+      }
+
+      this.lazyListeners.push(lazyListener)
+
+      // first emit
+      lazyListener(this.store.getState())
+
+      return { unbind }
     }
 
 
-    this.animationFrameId = requestAnimationFrame(() => this.digest())
+    protected digest() {
+      const state = this.store.getState()
+      const count = this.lazyListeners.length
+
+      // no changes in store
+      if (this.prevState !== state) {
+        for (let i = 0; i < count; i++) {
+          this.lazyListeners[i](state)
+        }
+
+        this.prevState = state
+      }
+
+
+      this.animationFrameId = requestAnimationFrame(() => this.digest())
+    }
   }
 }

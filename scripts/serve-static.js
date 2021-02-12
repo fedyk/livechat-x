@@ -5,13 +5,19 @@ const { getCwd } = require("./helpers")
 const port = "8080"
 
 function serveStatic() {
-  const process = spawn("python", ["-m", "SimpleHTTPServer", port], {
+  const python = spawn("python", ["-m", "SimpleHTTPServer", port], {
     cwd: getCwd()
   })
 
-  process.stdout.on("data", data => console.log(data + ""))
-  process.stderr.on("data", data => console.error(data + ""))
-  process.on("close", (code) => console.log(`"process exited with code ${code}`));
+  python.stdout.pipe(process.stdout)
+  python.stderr.pipe(process.stderr)
+
+  python.on("close", function (code) {
+    python.stdout.unpipe(process.stdout)
+    python.stderr.unpipe(process.stderr)
+
+    console.log(`"process exited with code ${code}`)
+  })
 
   console.log(`static server has started on port ${port}`)
 }
