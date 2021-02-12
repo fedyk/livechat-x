@@ -1,3 +1,4 @@
-modules/
+js/
 node_modules/
+.publish/
 .DS_Store

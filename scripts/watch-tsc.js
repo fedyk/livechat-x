@@ -4,7 +4,7 @@ const { spawn } = require("child_process")
 const { getCwd } = require("./helpers")
 
 function watchTsc() {
-  const tsc = spawn("npx", ["tsc", "--watch", "--preserveWatchOutput"], {
+  const tsc = spawn("./node_modules/.bin/tsc", ["--watch", "--preserveWatchOutput"], {
     cwd: getCwd()
   })
 

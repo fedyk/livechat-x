@@ -1,46 +1,46 @@
 #!/usr/bin/env node
 
+const fs = require("fs")
 const path = require("path")
 const { getCwd, spawnAsync } = require("./helpers")
 
 exports.ghPagesPublishAsync = async function () {
   const cwd = getCwd()
   const tmpCwd = path.resolve(__dirname, "./../.publish")
-  const url = await spawnAsync("git", ["config", "--get", "remote.origin.url"], { cwd })
-  const currBranch = await spawnAsync("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd })
+  const origin = await spawnAsync("git", ["config", "--get", "remote.origin.url"], { cwd })
 
-  // short plan for script
-  // check if repo is clean
-  // clone in .gh-publish repo with gh-pages branch selected
-  // pull recent version of gh-pages branch
-  // move files/folterd and commit them
-  // push to remove
+  if (!fs.existsSync(tmpCwd))  {
+    await spawnAsync("git", ["clone", "--branch", "gh-pages", origin, tmpCwd])
+  }
+  else {
+    await spawnAsync("git", ["pull", "origin", "gh-pages"], { cwd: tmpCwd })
+  }
 
-  // currBranch =currBranch.trim()
+  // copy index.html
+  await spawnAsync("cp", ["index.html", tmpCwd], { cwd: cwd })
+  
+  // copy js
+  await spawnAsync("cp", ["-rf", "./js", tmpCwd], { cwd: cwd })
 
-  // try {
-  //   console.log('spawnAsync("git", ["checkout", "gh-pages"], { cwd })')
-  //   await spawnAsync("git", ["checkout", "gh-pages"], { cwd })
-  //   console.log('spawnAsync("git", ["add", "./"], { cwd })')
-  //   await spawnAsync("git", ["add", "./"], { cwd })
+  // copy css
+  await spawnAsync("cp", ["-rf", "./css", tmpCwd])
 
-  //   // await spawnAsync("touch", ["test.txt"], { cwd })
+  // copy favicon.svg
+  await spawnAsync("cp", ["favicon.svg", tmpCwd])
 
-  //   console.log('spawnAsync("git", ["status", "--porcelain"], { cwd })')
-  //   const status = await spawnAsync("git", ["status", "--porcelain"], { cwd })
+  // git add .
+  await spawnAsync("git", ["add", "."], { cwd: tmpCwd })
 
-  //   if (!status) {
-  //     return
-  //   }
+  // git status --porcelain
+  const gitStatus = await spawnAsync("git", ["status", "--porcelain"], { cwd: tmpCwd })
 
-  //   console.log('spawnAsync("git", ["commit", "-m", "auto commit " + new Date().toISOString()], { cwd })')
-  //   await spawnAsync("git", ["commit", "-m", "auto commit " + new Date().toISOString()], { cwd })
-  //   console.log('spawnAsync("git", ["push", "origin", "gh-pages"], { cwd })')
-  //   await spawnAsync("git", ["push", "origin", "gh-pages"], { cwd })
-  // }
-  // finally {
-  //   await spawnAsync("git", ["checkout", currBranch])
-  // }
+  // git commit
+  if (gitStatus) {
+    await spawnAsync("git", ["commit", "-m", "auto commit"], { cwd: tmpCwd })
+  }
+
+  // git push
+  await spawnAsync("git", ["push", "origin", "gh-pages"])
 }
 
 if (require.main === module) {
