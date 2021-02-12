@@ -7,8 +7,6 @@ exports.getCwd = function getCwd() {
   return path.resolve(__dirname, "./../")
 }
 
-
-
 exports.spawnAsync = function spawnAsync(command, args, options) {
   const childProcess = spawn(command, args, options)
   let stdoutData = ""
@@ -37,7 +35,7 @@ exports.spawnAsync = function spawnAsync(command, args, options) {
       childProcess.stderr.off("data", handleStderrData)
 
       if (code === 0) {
-        resolve(stdoutData)
+        resolve(stdoutData.trim())
       }
       else {
         reject(new Error(stderrData || `command "${command} ${args.join(" ")}" exited with code ${code}`))
