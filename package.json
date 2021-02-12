@@ -7,8 +7,7 @@
     "dev": "./scripts/dev.js",
     "release": "scripts/release.js",
     "version": "scripts/sync-version.js",
-    "gh-pages:publish": "./scripts/gh-pages-publish.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "postversion": "git push && git push --tags"
   },
   "repository": {
     "type": "git",
