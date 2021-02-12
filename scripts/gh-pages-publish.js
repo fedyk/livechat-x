@@ -16,6 +16,9 @@ exports.ghPagesPublishAsync = async function () {
     await spawnAsync("git", ["pull", "origin", "gh-pages"], { cwd: tmpCwd })
   }
 
+  // clean tmp
+  await spawnAsync("rm", ["-r", "*"], { cwd: tmpCwd, shell: true })
+
   // copy index.html
   await spawnAsync("cp", ["index.html", tmpCwd], { cwd: cwd })
   
@@ -39,8 +42,8 @@ exports.ghPagesPublishAsync = async function () {
     await spawnAsync("git", ["commit", "-m", "auto commit"], { cwd: tmpCwd })
   }
 
-  // git push
-  await spawnAsync("git", ["push", "origin", "gh-pages"])
+  // git push origin gh-pages
+  await spawnAsync("git", ["push", "origin", "gh-pages"], { cwd: tmpCwd })
 }
 
 if (require.main === module) {
