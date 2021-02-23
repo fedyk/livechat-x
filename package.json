@@ -11,14 +11,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/fedyk/livechat-lite.git"
+    "url": "git+https://github.com/fedyk/livechat-x.git"
   },
   "author": "Andrii Fedyk <github.com/fedyk>",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/fedyk/livechat-lite/issues"
+    "url": "https://github.com/fedyk/livechat-x/issues"
   },
-  "homepage": "https://github.com/fedyk/livechat-lite#readme",
   "dependencies": {},
   "devDependencies": {
     "typescript": "^4.1.5"

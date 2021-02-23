@@ -531,7 +531,7 @@ namespace app.parsers {
     }
   }
 
-  export function parseRoutingStatus(routingStatus: any): RoutingStatus | void {
+  export function parseRoutingStatus(routingStatus: any): RoutingStatus {
     if (routingStatus === "accepting_chats" || routingStatus === "accepting chats") {
       return "accepting_chats"
     }
@@ -544,16 +544,24 @@ namespace app.parsers {
       return "offline"
     }
 
-    return console.warn("Unsupported routing status: " + routingStatus)
+    if (routingStatus === "online") {
+      return "accepting_chats"
+    }
+
+    throw new RangeError("Unsupported routing status: " + routingStatus)
   }
 
 
   export function parseAvatarUrl(avatarUrl?: string) {
     if (!avatarUrl) {
-      return
+      return ""
     }
 
-    return avatarUrl
+    if (avatarUrl.startsWith("http")) {
+      return avatarUrl
+    }
+
+    return `https://${avatarUrl}`
   }
 
   export function parseGeolocation(geolocation?: API$Geolocation): Geolocation | undefined {
@@ -790,4 +798,38 @@ namespace app.parsers {
 
     return scopes.map(scope => String(scope))
   }
+
+  export function parseAgents(agents: types.API$Agent[]) {
+    if (!Array.isArray(agents)) {
+      throw new RangeError("`agents` should be an list")
+    }
+
+    return agents.map(agent => parseAgent(agent))
+  }
+
+  export function parseAgent(agent: types.API$Agent): types.Agent {
+    return {
+      id: String(agent.id),
+      name: String(agent.name ?? ""),
+      jobTitle: String(agent.job_title ?? ""),
+      avatarUrl: parseAvatarUrl(agent.avatar_path ?? ""),
+    }
+  }
+
+  export function parseGroups(groups: types.API$Group[]) {
+    if (!Array.isArray(groups)) {
+      throw new RangeError("`agents` should be an list")
+    }
+
+    return groups.map(group => parseGroup(group))
+  }
+
+  export function parseGroup(group: types.API$Group): types.Group {
+    return {
+      id: Number(group.id),
+      name: String(group.name ?? ""),
+      routingStatus: parseRoutingStatus(group.routing_status)
+    }
+  }
 }
+

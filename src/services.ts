@@ -227,7 +227,7 @@ namespace app.services {
     }
 
     performAsync<T = {}>(action: string, payload: object | null, options?: Partial<RequestInit>): Promise<T> {
-      const url = "https://api.livechatinc.com/v3.3/agent/action/send_event" + action;
+      const url = `https://api.livechatinc.com/v3.3/agent/action/${action}`;
       const accessToken = this.auth.getAccessToken()
       const region = this.auth.getRegion()
       const init = {
@@ -235,7 +235,46 @@ namespace app.services {
         body: JSON.stringify(payload),
         method: "POST",
         headers: {
-          Accept: 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          "X-Region": region
+        },
+      }
+
+      return fetch(url, init).then((response) => this.parseResponse<T>(response))
+    }
+
+    protected parseResponse<T>(response: Response) {
+      if (response.ok === false) {
+        return response.json().then(function (json) {
+          const error = json?.error?.message ?? `Server responded with ${response.status} code`
+          const errorType = json?.error?.type
+
+          throw new ErrorWithType(error, errorType)
+        })
+      }
+      else {
+        return response.json() as Promise<T>
+      }
+    }
+  }
+  
+  export class ConfigurationAPI {
+    auth: Auth;
+
+    constructor(auth: Auth) {
+      this.auth = auth
+    }
+
+    performAsync<T = {}>(action: string, payload: object | null, options?: Partial<RequestInit>): Promise<T> {
+      const url = `https://api.livechatinc.com/v3.3/configuration/action/${encodeURIComponent(action)}`
+      const accessToken = this.auth.getAccessToken()
+      const region = this.auth.getRegion()
+      const init = {
+        ...options,
+        body: JSON.stringify(payload),
+        method: "POST",
+        headers: {
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
           "X-Region": region

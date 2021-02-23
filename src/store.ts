@@ -1,4 +1,5 @@
 namespace app.store {
+  import types = app.types
   import Chat = app.types.Chat
   import License = app.types.License
   import Message = app.types.Message

@@ -94,6 +94,19 @@ namespace app.types {
     // routingStatus: RoutingStatus
   }
 
+  export interface Agent {
+    id: string
+    name: string
+    jobTitle: string
+    avatarUrl: string
+  }
+
+  export interface Group {
+    id: number
+    name: string
+    routingStatus: RoutingStatus
+  }
+
   export type User = UserAgent | UserCustomer;
 
   export interface UserAgent {
@@ -783,6 +796,19 @@ namespace app.types {
     }[]
   }
 
+  export interface API$Agent {
+    id: string
+    name: string
+    job_title: string
+    avatar_path: string
+  }
+
+  export interface API$Group {
+    id: string
+    name: string
+    routing_status: string
+  }
+
   // export interface API$Customer {
   //   id: string
   //   name: string
@@ -875,4 +901,17 @@ namespace app.types {
   export interface API$Response$GetChat extends API$Chat {
     // empty
   }
+
+  export interface API$RequestPayload$ListAgents {
+    filters?: {
+      group_ids?: number[]
+    }
+  }
+  
+  export interface API$RequestPayload$ListGroups {
+    fields?: string[]
+  }
+
+  export type API$Response$ListAgents = API$Agent[]
+  export type API$Response$ListGroups = API$Group[]
 }
