@@ -1760,6 +1760,7 @@ namespace app.views {
       this.el.onkeydown = null!
       this.el.onclick = null!
       this.el.remove()
+      this.backdrop.remove()
     }
 
     show() {
@@ -1822,7 +1823,7 @@ namespace app.views {
 
       this.content.append(
         (this.search = new SearchControlView({ placeholder: "Search" })).el,
-        this.body = dom.createEl("div", { className: "modal-body p-0" }, [
+        this.body = dom.createEl("div", {}, [
           this.loaderEl = dom.createEl("div", { className: "p-5 text-center", textContent: "Loading.." }),
           this.list = dom.createEl("div", { className: "list-group" }),
         ]),
