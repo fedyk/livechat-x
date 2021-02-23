@@ -523,5 +523,9 @@ namespace app.api {
       return this.configuration.performAsync<types.API$Response$ListGroups>("list_groups", payload)
         .then(groups => parsers.parseGroups(groups))
     }
+
+    transferChat(payload: types.API$RequestPayload$TransferChat) {
+      return this.performAsync("transfer_chat", payload)
+    }
   }
 }

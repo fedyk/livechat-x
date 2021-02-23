@@ -911,6 +911,15 @@ namespace app.types {
   export interface API$RequestPayload$ListGroups {
     fields?: string[]
   }
+  
+  export interface API$RequestPayload$TransferChat {
+    id: string
+    target: {
+      type: "agent" | "group"
+      ids: (string | number)[]
+    }
+    force: boolean
+  }
 
   export type API$Response$ListAgents = API$Agent[]
   export type API$Response$ListGroups = API$Group[]

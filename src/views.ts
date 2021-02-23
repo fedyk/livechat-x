@@ -1675,7 +1675,6 @@ namespace app.views {
     }
 
     dispose() {
-      debugger
       clearTimeout(this.timerId)
       this.listeners.unbindAll()
       this.el.remove()
@@ -1834,19 +1833,14 @@ namespace app.views {
 
       this.listAvatars = new WeakMap()
       this.abort = new AbortController()
-      this.isFetching = false
-      this.agents = [{
-        id: "1",
-        name: "User Name",
-        jobTitle: "job title",
-        avatarUrl: "https://cdn.livechat-files.com/api/file/lc/img/12186588/33847f11c9252b94eac71c50a9ddb5f0.png"
-      }]
-      this.groups = [{
-        id: 1,
-        name: "Custom group",
-        routingStatus: "accepting_chats",
-      }]
+      this.isFetching = true
+      this.agents = []
+      this.groups = []
       this.filterQuery = ""
+      this.input.oninput = () => {
+        this.filterQuery = this.input.value
+        this.render()
+      }
 
       this.render()
     }
@@ -1857,6 +1851,9 @@ namespace app.views {
 
     show() {
       super.show()
+      this.input.value = ""
+      this.filterQuery = ""
+      this.input.focus()
       this.syncData()
     }
 
@@ -1874,7 +1871,6 @@ namespace app.views {
         .catch(err => console.error(err))
         .finally(() => {
           this.isFetching = false
-          debugger
           this.render()
         })
     }
@@ -1893,20 +1889,49 @@ namespace app.views {
         title: a.name,
         subTitle: a.jobTitle,
         avatarUrl: a.avatarUrl,
+        onClick: () => this.transferToAgent(a.id)
       }))
 
       return data.concat(groups.map(g => ({
         id: g.id.toString(),
         title: g.name,
         subTitle: g.routingStatus,
-        avatarUrl: ""
+        avatarUrl: "",
+        onClick: () => this.transferToGroup(g.id)
       })))
+    }
+
+    protected transferToAgent(agentId: string) {
+      return this.api.transferChat({
+        id: this.props.chatId,
+        target: {
+          type: "agent",
+          ids: [agentId]
+        },
+        force: true
+      })
+      .then(() => this.hide())
+      .catch(err => alert(err.message))
+    }
+    
+    protected transferToGroup(groupId: number) {
+      return this.api.transferChat({
+        id: this.props.chatId,
+        target: {
+          type: "group",
+          ids: [groupId]
+        },
+        force: true
+      })
+      .then(() => this.hide())
+      .catch(err => alert(err.message))
     }
 
     protected render() {
       const data = this.getFilteredData()
 
       dom.toggleEl(this.loaderEl, this.isFetching)
+      dom.toggleEl(this.list, !this.isFetching)
 
       dom.selectAll(this.list)
         .data(data, d => d?.id)
@@ -1922,6 +1947,7 @@ namespace app.views {
     title: string
     subTitle: string
     avatarUrl?: string
+    onClick(): string
   }
 
   class TransferModalListItem implements helpers.IDisposable {
@@ -1957,6 +1983,7 @@ namespace app.views {
     title: HTMLDivElement
     sutTitle: HTMLDivElement
     avatarContainer: HTMLDivElement
+    clickListener: helpers.IListener
 
     constructor(protected props: ListGroupItemProps) {
       this.el = dom.createEl("button", { className: "list-group-item list-group-item-action", type: "button" }, [
@@ -1969,6 +1996,8 @@ namespace app.views {
         ])
       ])
 
+      this.clickListener = dom.addListener(this.el, "click", () => this.handleClick())
+
       AvatarView.renderAvatar(this.avatarContainer, {
         size: 42,
         alt: props.subTitle,
@@ -1978,12 +2007,19 @@ namespace app.views {
 
     dispose() {
       AvatarView.removeAvatar(this.avatarContainer)
+      this.clickListener.unbind()
       this.el.remove()
     }
 
     setProps(props: ListGroupItemProps) {
       this.props = props
       this.render()
+    }
+
+    protected handleClick() {
+      if (typeof this.props.onClick === "function") {
+        this.props.onClick()
+      }
     }
 
     protected render() {
