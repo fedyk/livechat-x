@@ -849,7 +849,7 @@ namespace app.views {
         return // nothing to send
       }
 
-      this.api.sendMessage(this.props.chatId, text).catch(err => {
+      this.api.sendMessage(this.props.chatId, text, "all").catch(err => {
         console.warn(err)
       })
 
@@ -1947,7 +1947,7 @@ namespace app.views {
     title: string
     subTitle: string
     avatarUrl?: string
-    onClick(): string
+    onClick(): void
   }
 
   class TransferModalListItem implements helpers.IDisposable {

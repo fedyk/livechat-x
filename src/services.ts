@@ -299,6 +299,52 @@ namespace app.services {
     }
   }
 
+  export class RestAPI {
+    constructor(protected auth: Auth) { }
+
+    performAsync<T = {}>(path: string, method: string, body: any = null, options?: Partial<RequestInit>) {
+      return Promise.resolve(`https://us-central1-canned-response-usage.cloudfunctions.net/proxy/${path}`)
+        .then((url) => {
+          const region = this.auth.getRegion()
+          const accessToken = this.auth.getAccessToken()
+          const headers = {
+            "Authorization": `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+            "X-API-Version": "2",
+            "X-Region": region
+          }
+
+          const init: RequestInit = {
+            headers,
+            method,
+            body: body ? JSON.stringify(body) : null,
+            ...options
+          }
+
+          return fetch(url, init)
+        })
+        .then(response => this.parseResponse<T>(response))
+    }
+
+    protected parseResponse<T>(response: Response) {
+      if (response.ok === false) {
+        return response.json().then(function (json) {
+          const errorType = json?.error?.type
+          let message = `Server responded with ${response.status} code`
+
+          if (Array.isArray(json?.errors)) {
+            message = json?.errors.join(", ")
+          }
+
+          throw new ErrorWithType(message, errorType)
+        })
+      }
+      else {
+        return response.json() as Promise<T>
+      }
+    }
+  }
+
 
   /**
    * LiveChat platform does not have terms like my or queued chat.

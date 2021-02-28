@@ -268,7 +268,8 @@ namespace app.demo {
       avatar: "https://cdn.livechatinc.com/cloud/?uri=https%3A%2F%2Flivechat.s3.amazonaws.com%2Fdefault%2Favatars%2F394ad6e3df2320941ab8e0ca147d5221.png",
       email: agent1.email,
     },
-    license: null
+    license: null,
+    cannedResponses: {}
   }
 
   export function fakeIncomingMessages(store = $Store()) {

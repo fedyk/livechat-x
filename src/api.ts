@@ -34,6 +34,7 @@ namespace app.api {
     chatRouter: services.ChatRouter
     chatRouteManager: services.CharRouteManager
     web: services.WebAPI
+    rest: services.RestAPI
     configuration: services.ConfigurationAPI
 
     constructor(auth: services.Auth, store: store.Store, chatRouter: services.ChatRouter, chatRouteManager: services.CharRouteManager) {
@@ -44,6 +45,7 @@ namespace app.api {
       this.chatRouter = chatRouter
       this.chatRouteManager = chatRouteManager
       this.web = new services.WebAPI(auth)
+      this.rest = new services.RestAPI(auth)
       this.configuration = new services.ConfigurationAPI(auth)
     }
 
@@ -104,6 +106,7 @@ namespace app.api {
           this.store.setChats(mergeResults.chatsById)
           this.store.setLicense(license)
           this.store.setMyProfile(myProfile)
+          this.store.resetCannedResponses()
 
           if (routingStatus) {
             this.store.setRoutingStatus(myProfile.id, routingStatus)
@@ -207,8 +210,8 @@ namespace app.api {
           return this.handleIncomingSneakPeek(push)
         // case "incoming_typing_indicator":
         //   return this.handle_incoming_typing_indicator(push)
-        // case "incoming_multicast":
-        //   return this.handle_incoming_multicast(push)
+        case "incoming_multicast":
+          return this.handleIncomingMulticast(push)
         // case "chat_unfollowed":
         //   return this.handle_chat_unfollowed(push)
         case "queue_positions_updated":
@@ -364,6 +367,22 @@ namespace app.api {
       this.store.setSneakPeek(chatId, sneakPeek)
     }
 
+    handleIncomingMulticast(push: types.API$Push$Multicast) {
+      const payload = push.payload
+
+      if (payload.type === "lc2" && payload.content.name === "canned_response_add") {
+        return this.store.addCannedResponse(parsers.parseCannedResponse(payload.content.canned_response), payload.content.group)
+      }
+
+      if (payload.type === "lc2" && payload.content.name === "canned_response_update") {
+        return this.store.updateCannedResponse(parsers.parseCannedResponse(payload.content.canned_response), payload.content.group)
+      }
+
+      if (payload.type === "lc2" && payload.content.name === "canned_response_remove") {
+        return this.store.removeCannedResponse(payload.content.canned_response.id, payload.content.group)
+      }
+    }
+
     handleQueuePositionsUpdated(push: app.types.API$Push$QueuePositionsUpdated) {
       const payload = Array.isArray(push?.payload) ? push.payload : []
 
@@ -388,7 +407,7 @@ namespace app.api {
       }
     }
 
-    async sendMessage(chatId: string, text: string) {
+    async sendMessage(chatId: string, text: string, recipients: "all" | "agents") {
       const customId = "LiveChatX_" + Math.random().toString(36).substr(2, 9)
       const state = this.store.getState()
       const authorId = state.myProfile?.id
@@ -419,7 +438,7 @@ namespace app.api {
         type: "message",
         authorId: authorId,
         createdAt: Date.now(),
-        recipients: "all",
+        recipients,
         postback: {}
       }
 
@@ -428,7 +447,7 @@ namespace app.api {
         custom_id: customId,
         type: "message",
         text: text,
-        recipients: "all",
+        recipients,
       }
 
       const payload = {
@@ -526,6 +545,17 @@ namespace app.api {
 
     transferChat(payload: types.API$RequestPayload$TransferChat) {
       return this.performAsync("transfer_chat", payload)
+    }
+
+    fetchCannedResponses(groupId: number, signal?: AbortSignal) {
+      return this.rest.performAsync<types.API$CannedResponse[]>(`canned_responses?group=${encodeURIComponent(groupId)}`, "GET", null, { signal })
+        .then(resp => parsers.parseCannedResponses(resp))
+    }
+
+    syncCannedResponses(groupId: number, signal?: AbortSignal) {
+      return this.fetchCannedResponses(groupId, signal).then(cannedResponses => {
+        this.store.setCannedResponses(cannedResponses, groupId)
+      })
     }
   }
 }

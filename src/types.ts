@@ -314,6 +314,11 @@ namespace app.types {
     /** Inactive, continuous, pinned */
     "pinned"
 
+  export interface CannedResponse {
+    id: number
+    text: string
+    tags: string[]
+  }
 
   export interface API$Push<A, P = any> {
     action: A
@@ -339,6 +344,7 @@ namespace app.types {
     API$Push$ThreadPropertiesDeleted |
     API$Push$EventsMarkedAsSeen |
     API$Push$IncomingSneakPeek |
+    API$Push$Multicast |
     API$Push$AgentDisconnected |
     API$Push$QueuePositionsUpdated;
 
@@ -453,6 +459,54 @@ namespace app.types {
     thread_id: string
     sneak_peek: API$SneakPeek
   }>
+
+  export type API$Push$Multicast = API$Push<"incoming_multicast", API$Multicast$IWCS0014R |
+    API$Multicast$CannedResponseAdd |
+    API$Multicast$CannedResponseUpdate |
+    API$Multicast$CannedResponseRemove>
+
+  export interface API$Multicast$IWCS0014R {
+    type: "lc2_iwcs"
+    content: {
+      command: "IWCS0014R",
+      agent: {
+        login: string
+        name: string
+        sessions: Array<{
+          ip: string
+          version: string
+          app_info: string
+        }>
+      }
+    }
+  }
+
+  export interface API$Multicast$CannedResponseAdd {
+    type: "lc2"
+    content: {
+      name: "canned_response_add"
+      canned_response: API$CannedResponse
+      group: number
+    }
+  }
+
+  export interface API$Multicast$CannedResponseUpdate {
+    type: "lc2"
+    content: {
+      name: "canned_response_update"
+      canned_response: API$CannedResponse
+      group: number
+    }
+  }
+
+  export interface API$Multicast$CannedResponseRemove {
+    type: "lc2"
+    content: {
+      name: "canned_response_remove"
+      canned_response: { id: number }
+      group: number
+    }
+  }
 
   export type API$Push$AgentDisconnected = API$Push<"agent_disconnected", {
     reason: "connection_timeout" |
@@ -886,6 +940,13 @@ namespace app.types {
     recipients: "all"
     text: string
     timestamp: number
+  }
+
+  export interface API$CannedResponse {
+    id: number
+    group: number
+    tags: string[]
+    text: string
   }
 
   export interface API$Response$Login {
