@@ -500,7 +500,7 @@ namespace app.store {
             ...state,
             cannedResponses: {
               ...state.cannedResponses,
-              [action.payload.groupId]: [action.payload.cannedResponse].concat(cannedResponses)
+              [action.payload.groupId]: cannedResponses.concat(action.payload.cannedResponse)
             }
           }
         }
