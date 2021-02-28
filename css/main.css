@@ -108,6 +108,10 @@ input:focus {
   align-items: center;
 }
 
+.flex-fill {
+  flex: 1 1 auto !important;
+}
+
 .p-0 {
   padding: 0 !important;
 }
@@ -989,6 +993,7 @@ svg.message-meta-check2-all {
 .form-control {
   display: block;
   border: none;
+  color: var(--main-text-color);
   background-color: transparent;
   padding: 1rem;
 }
