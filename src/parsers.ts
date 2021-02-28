@@ -783,6 +783,28 @@ namespace app.parsers {
     }
   }
 
+  export function parseCannedResponses(cannedResponses: types.API$CannedResponse[]): types.CannedResponse[] {
+    if (!Array.isArray(cannedResponses)) {
+      throw new RangeError("`canned_responses` should be an array")
+    }
+
+    return cannedResponses.map(function (cannedResponse) {
+      return parseCannedResponse(cannedResponse)
+    })
+  }
+
+  export function parseCannedResponse(cannedResponse: types.API$CannedResponse): types.CannedResponse {
+    if (!Array.isArray(cannedResponse.tags)) {
+      throw new RangeError("tags should be an array of string")
+    }
+
+    return {
+      id: Number(cannedResponse.id),
+      text: String(cannedResponse.text).trim(),
+      tags: cannedResponse.tags
+    }
+  }
+
   export function parseScopes(scopes: any) {
     if (!Array.isArray(scopes)) {
       return []

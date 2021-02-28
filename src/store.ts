@@ -25,6 +25,9 @@ namespace app.store {
     selectedChatId: string | null
     myProfile: MyProfile | null
     license: License | null
+    cannedResponses: {
+      [groupId: number]: types.CannedResponse[]
+    }
   }
 
   interface setChatsAction {
@@ -118,6 +121,42 @@ namespace app.store {
     }
   }
 
+  interface setCannedResponsesAction {
+    type: "SET_CANNED_RESPONSES"
+    payload: {
+      cannedResponses: types.CannedResponse[]
+      groupId: number
+    }
+  }
+
+  interface addCannedResponseAction {
+    type: "ADD_CANNED_RESPONSE"
+    payload: {
+      cannedResponse: types.CannedResponse
+      groupId: number
+    }
+  }
+
+  interface updateCannedResponseAction {
+    type: "UPDATE_CANNED_RESPONSE"
+    payload: {
+      cannedResponse: types.CannedResponse
+      groupId: number
+    }
+  }
+
+  interface removeCannedResponseAction {
+    type: "REMOVE_CANNED_RESPONSE"
+    payload: {
+      id: number
+      groupId: number
+    }
+  }
+
+  interface resetCannedResponsesAction {
+    type: "RESET_CANNED_RESPONSES"
+  }
+
   type Actions = setChatsAction |
     setChatAction |
     updateChatAction |
@@ -130,7 +169,12 @@ namespace app.store {
     setLicenseAction |
     setRoutingStatus |
     addMessageAction |
-    updateMessageAction
+    updateMessageAction |
+    setCannedResponsesAction |
+    addCannedResponseAction |
+    updateCannedResponseAction |
+    removeCannedResponseAction |
+    resetCannedResponsesAction
 
   export const $Store = createInjector<Store>()
 
@@ -146,6 +190,7 @@ namespace app.store {
       selectedChatId: null,
       chatsByIds: {},
       routingStatuses: {},
+      cannedResponses: {}
     }) {
       this.state = initialState
       this.listeners = []
@@ -249,6 +294,40 @@ namespace app.store {
         payload: {
           chatId, threadId, messageId, message
         }
+      })
+    }
+
+    setCannedResponses(cannedResponses: types.CannedResponse[], groupId: number) {
+      this.dispatch({
+        type: "SET_CANNED_RESPONSES",
+        payload: { cannedResponses, groupId }
+      })
+    }
+
+    addCannedResponse(cannedResponse: types.CannedResponse, groupId: number) {
+      this.dispatch({
+        type: "ADD_CANNED_RESPONSE",
+        payload: { cannedResponse, groupId }
+      })
+    }
+
+    updateCannedResponse(cannedResponse: types.CannedResponse, groupId: number) {
+      this.dispatch({
+        type: "UPDATE_CANNED_RESPONSE",
+        payload: { cannedResponse, groupId }
+      })
+    }
+
+    removeCannedResponse(id: number, groupId: number) {
+      this.dispatch({
+        type: "REMOVE_CANNED_RESPONSE",
+        payload: { id, groupId }
+      })
+    }
+
+    resetCannedResponses() {
+      this.dispatch({
+        type: "RESET_CANNED_RESPONSES",
       })
     }
 
@@ -399,6 +478,80 @@ namespace app.store {
 
         case "UPDATE_MESSAGE":
           return updateMessageReducer(state, action);
+
+        case "SET_CANNED_RESPONSES":
+          return {
+            ...state,
+            cannedResponses: {
+              ...state.cannedResponses,
+              [action.payload.groupId]: action.payload.cannedResponses
+            }
+          }
+
+        case "ADD_CANNED_RESPONSE": {
+          const cannedResponses = state.cannedResponses[action.payload.groupId]
+
+          if (!cannedResponses) {
+            return state
+          }
+
+          return {
+            ...state,
+            cannedResponses: {
+              ...state.cannedResponses,
+              [action.payload.groupId]: [action.payload.cannedResponse].concat(cannedResponses)
+            }
+          }
+        }
+
+        case "UPDATE_CANNED_RESPONSE": {
+          const cannedResponses = state.cannedResponses[action.payload.groupId]
+
+          if (!cannedResponses) {
+            return state
+          }
+
+          return {
+            ...state,
+            cannedResponses: {
+              ...state.cannedResponses,
+              [action.payload.groupId]: cannedResponses.map(function(v) {
+                if (v.id === action.payload.cannedResponse.id) {
+                  return {
+                    ...v,
+                    ...action.payload.cannedResponse
+                  }
+                }
+                else {
+                  return v
+                }
+              })
+            }
+          }
+        }
+
+        case "REMOVE_CANNED_RESPONSE": {
+          const cannedResponses = state.cannedResponses[action.payload.groupId]
+
+          if (!cannedResponses) {
+            return state
+          }
+
+          return {
+            ...state,
+            cannedResponses: {
+              ...state.cannedResponses,
+              [action.payload.groupId]: cannedResponses.filter(v => v.id !== action.payload.id)
+            }
+          }
+        }
+
+        case "RESET_CANNED_RESPONSES": {
+          return {
+            ...state,
+            cannedResponses: {}
+          }
+        }
 
         default:
           return console.warn("Action", action, "is unhandled"), state
