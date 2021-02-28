@@ -5,10 +5,10 @@ namespace app {
   import Auth = app.services.Auth
   import ChatRouter = app.services.ChatRouter
   import Storage = app.services.Storage
-  import $API = app.services.$API
+  import API = app.api.API
+  import $API = app.api.$API
   import $CharRouteManager = app.services.$CharRouteManager
   import CharRouteManager = app.services.CharRouteManager
-  import API = app.services.API
   import $Store = app.store.$Store
   import State = app.store.State
   import Store = app.store.Store

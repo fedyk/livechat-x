@@ -1,10 +1,6 @@
-namespace app.services {
-  import Store = app.store.Store
-  import CharRouteManager = app.services.CharRouteManager
-  import WebAPI = app.services.WebAPI
-  import IDisposable = app.helpers.IDisposable
-  import Listeners = app.helpers.Listeners
-  import ErrorWithType = app.helpers.ErrorWithType
+/// <reference path="services.ts" />
+
+namespace app.api {
   import TypedEventEmitter = app.helpers.TypedEventEmitter
   import mergeChats = app.helpers.mergeChats
   import indexBy = app.helpers.indexBy
@@ -25,30 +21,32 @@ namespace app.services {
   import API$Pushes = app.types.API$Pushes
 
   interface APIEvents {
-    loginError(err: ErrorWithType): void
+    loginError(err: helpers.ErrorWithType): void
   }
 
   export const $API = createInjector<API>()
 
-  export class API extends TypedEventEmitter<APIEvents> implements IDisposable {
-    rtm?: RTM
-    rtmListeners: Listeners
-    auth: Auth
-    store: Store
-    chatRouter: ChatRouter
-    chatRouteManager: CharRouteManager
-    rest: RestAPI
-    web: WebAPI
+  export class API extends TypedEventEmitter<APIEvents> implements helpers.IDisposable {
+    rtm?: services.RTM
+    rtmListeners: helpers.Listeners
+    auth: services.Auth
+    store: store.Store
+    chatRouter: services.ChatRouter
+    chatRouteManager: services.CharRouteManager
+    web: services.WebAPI
+    rest: services.RestAPI
+    configuration: services.ConfigurationAPI
 
-    constructor(auth: Auth, store: Store, chatRouter: ChatRouter, chatRouteManager: CharRouteManager) {
+    constructor(auth: services.Auth, store: store.Store, chatRouter: services.ChatRouter, chatRouteManager: services.CharRouteManager) {
       super();
-      this.rtmListeners = new Listeners();
+      this.rtmListeners = new helpers.Listeners();
       this.auth = auth;
       this.store = store;
       this.chatRouter = chatRouter
       this.chatRouteManager = chatRouteManager
+      this.web = new services.WebAPI(auth)
       this.rest = new services.RestAPI(auth)
-      this.web = new WebAPI(auth)
+      this.configuration = new services.ConfigurationAPI(auth)
     }
 
     dispose() {
@@ -65,7 +63,7 @@ namespace app.services {
       const region = this.auth.getRegion()
       const url = `wss://${getAgentAPIHost(region)}/v3.3/agent/rtm/ws`;
 
-      this.rtm = new RTM(url)
+      this.rtm = new services.RTM(url)
       this.rtmListeners.unbindAll()
       this.rtmListeners.register(
         this.rtm.addListener("open", this.handleOpen),
@@ -114,7 +112,7 @@ namespace app.services {
             this.store.setRoutingStatus(myProfile.id, routingStatus)
           }
 
-          Storage.setMyProfile(myProfile)
+          services.Storage.setMyProfile(myProfile)
         })
         .catch(err => this.emit("loginError", err));
     };
@@ -533,6 +531,20 @@ namespace app.services {
           user_type: "agent"
         })
       }
+    }
+
+    fetchAgents(payload: types.API$RequestPayload$ListAgents = {}) {
+      return this.configuration.performAsync<types.API$Response$ListAgents>("list_agents", payload)
+        .then(agents => parsers.parseAgents(agents))
+    }
+
+    fetchGroups(payload: types.API$RequestPayload$ListGroups = {}) {
+      return this.configuration.performAsync<types.API$Response$ListGroups>("list_groups", payload)
+        .then(groups => parsers.parseGroups(groups))
+    }
+
+    transferChat(payload: types.API$RequestPayload$TransferChat) {
+      return this.performAsync("transfer_chat", payload)
     }
 
     fetchCannedResponses(groupId: number, signal?: AbortSignal) {

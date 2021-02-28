@@ -1,7 +1,6 @@
 namespace app.views {
   import dom = app.dom
   import helpers = app.helpers
-
   import $Store = app.store.$Store
   import Store = app.store.Store
   import State = app.store.State
@@ -17,8 +16,8 @@ namespace app.views {
   import User = app.types.User
   import VisitedPage = app.types.VisitedPage
   import ReverseScroll = app.services.ReverseScroll
-  import $API = app.services.$API
-  import API = app.services.API
+  import $API = app.api.$API
+  import API = app.api.API
   import getAccountsUrl = app.config.getAccountsUrl
   import $CharRouteManager = app.services.$CharRouteManager
   import $LazyConnect = app.services.$LazyConnect
@@ -562,9 +561,14 @@ namespace app.views {
     headerAvatar: HTMLDivElement
     headerTitle: HTMLDivElement
     dropdown: DropdownView
-    connectListener: helpers.IListener
+    listeners: helpers.Listeners
+    transferToModal: TransferModalView
 
     constructor(protected props: ChatHeaderViewProps, lazyConnect = $LazyConnect()) {
+      let transferToEl: HTMLButtonElement
+
+      this.listeners = new helpers.Listeners()
+
       this.el = dom.createEl("div", { className: "chat-header" }, [
         this.headerAvatar = dom.createEl("div", { className: "chat-header-avatar" }),
         dom.createEl("div", { className: "chat-header-details" }, [
@@ -577,24 +581,39 @@ namespace app.views {
               createIconEl({ name: "caret-down-fill", size: 10 })
             ]),
             menuContent: [
-              dom.createEl("a", { className: "dropdown-item", href: "", textContent: "Transfer to..", onclick: () => alert("todo") }),
-              dom.createEl("a", { className: "dropdown-item", href: "", textContent: "Archive", onclick: () => alert("todo") }),
+              transferToEl = dom.createEl("button", {
+                className: "dropdown-item",
+                textContent: "Transfer to.."
+              }),
+              dom.createEl("button", {
+                className: "dropdown-item",
+                textContent: "Archive",
+                onclick: () => alert("todo")
+              }),
             ],
             menuContentAlignRight: true
           })).el
         ])
       ])
 
-      this.connectListener = lazyConnect.connect<ChatHeaderViewRenderProps>(
+      this.transferToModal = new TransferModalView({
+        chatId: props.chatId
+      })
+
+      this.listeners.register(lazyConnect.connect<ChatHeaderViewRenderProps>(
         state => this.mapper(state),
         props => this.render(props)
+      ))
+
+      this.listeners.register(
+        dom.addListener(transferToEl, "click", () => this.transferToModal.show())
       )
     }
 
     dispose() {
       AvatarView.removeAvatar(this.headerAvatar)
       this.dropdown.dispose()
-      this.connectListener.unbind()
+      this.listeners.unbindAll()
       this.el.remove()
     }
 
@@ -830,7 +849,7 @@ namespace app.views {
         return // nothing to send
       }
 
-      this.api.sendMessage(this.props.chatId, text).catch(err => {
+      this.api.sendMessage(this.props.chatId, text, "all").catch(err => {
         console.warn(err)
       })
 
@@ -1425,14 +1444,7 @@ namespace app.views {
       const altText = helpers.getInitials(props.alt)
 
       this.el = dom.createEl("div", { className: className }, [
-        props.src ? (
-          this.img = dom.createEl("img", {
-            className: "avatar-img",
-            src: props.src,
-            height: props.size,
-            width: props.size,
-          })
-        ) : "",
+        props.src ? (this.img = dom.createEl("img", { className: "avatar-img", src: props.src })) : "",
         this.alt = dom.createEl("div", { className: "avatar-alt", textContent: altText })
       ])
 
@@ -1441,7 +1453,7 @@ namespace app.views {
       this.alt.style.lineHeight = `${props.size}px`
 
       if (this.img) {
-        this.imgListener = dom.addListener(this.img, "error", this.handleImgError)
+        this.imgListener = dom.addListener(this.img, "error", () => this.handleImgError())
       }
     }
 
@@ -1663,7 +1675,6 @@ namespace app.views {
     }
 
     dispose() {
-      debugger
       clearTimeout(this.timerId)
       this.listeners.unbindAll()
       this.el.remove()
@@ -1680,6 +1691,346 @@ namespace app.views {
       this.timerId = setTimeout(() => {
         this.el.classList.remove("dropdown-mouse-enter")
       }, 200)
+    }
+  }
+
+  interface SearchControlProps {
+    placeholder?: string
+  }
+
+  interface SearchControlEvents {
+    onChange(value: string): void
+  }
+
+  export class SearchControlView extends helpers.TypedEventEmitter<SearchControlEvents> implements helpers.IDisposable {
+    el: HTMLDivElement
+    input: HTMLInputElement
+
+    constructor(props: SearchControlProps) {
+      super()
+
+      this.el = dom.createEl("div", { className: "search" }, [
+        dom.createEl("label", { className: "search-label", htmlFor: "search", }, [
+          createIconEl({ name: "search", size: 12 })
+        ]),
+        this.input = dom.createEl("input", {
+          id: "search",
+          type: "text",
+          placeholder: props.placeholder ?? "Search",
+          className: "search-input",
+          autocomplete: "off",
+        })
+      ])
+
+      this.input.oninput = () => this.handleInput()
+    }
+
+    dispose() {
+      this.input.oninput = null!
+      this.el.remove()
+    }
+
+    protected handleInput() {
+      this.emit("onChange", this.input.value)
+    }
+  }
+
+  export class ModalView implements helpers.IDisposable {
+    el: HTMLDivElement
+    dialog: HTMLDivElement
+    content: HTMLDivElement
+    backdrop: HTMLDivElement
+    isShown: boolean
+
+    constructor() {
+      this.isShown = false
+      this.el = dom.createEl("div", { className: "modal", tabIndex: -1 }, [
+        this.dialog = dom.createEl("div", { className: "modal-dialog" }, [
+          this.content = dom.createEl("div", { className: "modal-content" })
+        ])
+      ])
+
+      this.backdrop = dom.createEl("div", { className: "modal-backdrop" })
+
+      document.body.append(this.backdrop, this.el)
+    }
+
+    dispose() {
+      this.el.onkeydown = null!
+      this.el.onclick = null!
+      this.el.remove()
+      this.backdrop.remove()
+    }
+
+    show() {
+      if (this.isShown) {
+        return
+      }
+
+      this.isShown = true
+      this.el.classList.add("show")
+      this.backdrop.classList.add("show")
+
+      this.el.onkeydown = event => {
+        if (event.code === "Escape") {
+          this.hide()
+        }
+      }
+
+      this.el.onclick = event => {
+        if (event.target !== event.currentTarget) {
+          return
+        }
+
+        this.hide()
+      }
+    }
+
+    hide() {
+      if (!this.isShown) {
+        return
+      }
+
+      this.isShown = false
+      this.el.classList.remove("show")
+      this.backdrop.classList.remove("show")
+      this.el.onkeydown = null!
+      this.el.onclick = null!
+    }
+  }
+
+  interface TransferModalViewProps {
+    chatId: string
+  }
+
+  export class TransferModalView extends ModalView implements helpers.IDisposable {
+    abort: AbortController
+    body: HTMLDivElement
+    footer: HTMLDivElement
+    loaderEl: HTMLDivElement
+    list: HTMLDivElement
+    listAvatars: WeakMap<HTMLButtonElement, HTMLDivElement>
+    input: HTMLInputElement
+    search: SearchControlView
+    isFetching: boolean
+    agents: types.Agent[]
+    groups: types.Group[]
+    filterQuery: string
+
+    constructor(protected props: TransferModalViewProps, protected api = $API()) {
+      super()
+
+      this.content.append(
+        (this.search = new SearchControlView({ placeholder: "Search" })).el,
+        this.body = dom.createEl("div", {}, [
+          this.loaderEl = dom.createEl("div", { className: "p-5 text-center", textContent: "Loading.." }),
+          this.list = dom.createEl("div", { className: "list-group" }),
+        ]),
+        this.footer = dom.createEl("div", { className: "" }, [
+          this.input = dom.createEl("input", { className: "form-control", placeholder: "Add a comment..." })
+        ]),
+      )
+
+      this.listAvatars = new WeakMap()
+      this.abort = new AbortController()
+      this.isFetching = true
+      this.agents = []
+      this.groups = []
+      this.filterQuery = ""
+      this.input.oninput = () => {
+        this.filterQuery = this.input.value
+        this.render()
+      }
+
+      this.render()
+    }
+
+    dispose() {
+      this.abort.abort()
+    }
+
+    show() {
+      super.show()
+      this.input.value = ""
+      this.filterQuery = ""
+      this.input.focus()
+      this.syncData()
+    }
+
+    protected syncData() {
+      this.isFetching = true
+      this.render()
+
+      const promise = this.api.fetchAgents()
+        .then(agents => this.agents = agents)
+
+      const promise2 = this.api.fetchGroups({ fields: ["routing_status"] })
+        .then(groups => this.groups = groups)
+
+      return Promise.all([promise, promise2])
+        .catch(err => console.error(err))
+        .finally(() => {
+          this.isFetching = false
+          this.render()
+        })
+    }
+
+    protected getFilteredData() {
+      const agents = this.filterQuery.length === 0
+        ? this.agents
+        : this.agents.filter(a => a.name.localeCompare(this.filterQuery))
+
+      const groups = this.filterQuery.length === 0
+        ? this.groups
+        : this.groups.filter(g => g.name.localeCompare(this.filterQuery))
+
+      const data = agents.map(a => ({
+        id: a.id,
+        title: a.name,
+        subTitle: a.jobTitle,
+        avatarUrl: a.avatarUrl,
+        onClick: () => this.transferToAgent(a.id)
+      }))
+
+      return data.concat(groups.map(g => ({
+        id: g.id.toString(),
+        title: g.name,
+        subTitle: g.routingStatus,
+        avatarUrl: "",
+        onClick: () => this.transferToGroup(g.id)
+      })))
+    }
+
+    protected transferToAgent(agentId: string) {
+      return this.api.transferChat({
+        id: this.props.chatId,
+        target: {
+          type: "agent",
+          ids: [agentId]
+        },
+        force: true
+      })
+      .then(() => this.hide())
+      .catch(err => alert(err.message))
+    }
+    
+    protected transferToGroup(groupId: number) {
+      return this.api.transferChat({
+        id: this.props.chatId,
+        target: {
+          type: "group",
+          ids: [groupId]
+        },
+        force: true
+      })
+      .then(() => this.hide())
+      .catch(err => alert(err.message))
+    }
+
+    protected render() {
+      const data = this.getFilteredData()
+
+      dom.toggleEl(this.loaderEl, this.isFetching)
+      dom.toggleEl(this.list, !this.isFetching)
+
+      dom.selectAll(this.list)
+        .data(data, d => d?.id)
+        .join(
+          (enter, d) => enter.append(TransferModalListItem.enter(d)),
+          (update, d) => TransferModalListItem.update(update, d),
+          exit => TransferModalListItem.exit(exit)
+        )
+    }
+  }
+
+  interface ListGroupItemProps {
+    title: string
+    subTitle: string
+    avatarUrl?: string
+    onClick(): void
+  }
+
+  class TransferModalListItem implements helpers.IDisposable {
+    // static
+    static instances = new WeakMap<HTMLElement, TransferModalListItem>()
+
+    static enter(props: ListGroupItemProps) {
+      const listGroupItem = new TransferModalListItem(props)
+
+      TransferModalListItem.instances.set(listGroupItem.el, listGroupItem)
+
+      return listGroupItem.el
+    }
+
+    static update(el: HTMLElement, props: ListGroupItemProps) {
+      const listGroupItem = TransferModalListItem.instances.get(el)
+
+      if (listGroupItem) {
+        listGroupItem.setProps(props)
+      }
+    }
+
+    static exit(el: HTMLElement) {
+      const listGroupItem = TransferModalListItem.instances.get(el)
+
+      if (listGroupItem) {
+        listGroupItem.dispose()
+      }
+    }
+
+    // class
+    el: HTMLButtonElement
+    title: HTMLDivElement
+    sutTitle: HTMLDivElement
+    avatarContainer: HTMLDivElement
+    clickListener: helpers.IListener
+
+    constructor(protected props: ListGroupItemProps) {
+      this.el = dom.createEl("button", { className: "list-group-item list-group-item-action", type: "button" }, [
+        dom.createEl("div", { className: "d-flex align-items-center" }, [
+          this.avatarContainer = dom.createEl("div", { className: "pr-2" }),
+          dom.createEl("div", {}, [
+            this.title = dom.createEl("div", { className: "text-primary", innerText: props.title }),
+            this.sutTitle = dom.createEl("div", { className: "text-secondary", innerText: props.subTitle }),
+          ])
+        ])
+      ])
+
+      this.clickListener = dom.addListener(this.el, "click", () => this.handleClick())
+
+      AvatarView.renderAvatar(this.avatarContainer, {
+        size: 42,
+        alt: props.subTitle,
+        src: props.avatarUrl
+      })
+    }
+
+    dispose() {
+      AvatarView.removeAvatar(this.avatarContainer)
+      this.clickListener.unbind()
+      this.el.remove()
+    }
+
+    setProps(props: ListGroupItemProps) {
+      this.props = props
+      this.render()
+    }
+
+    protected handleClick() {
+      if (typeof this.props.onClick === "function") {
+        this.props.onClick()
+      }
+    }
+
+    protected render() {
+      this.title.textContent = this.props.title
+      this.sutTitle.textContent = this.props.subTitle
+
+      AvatarView.renderAvatar(this.avatarContainer, {
+        size: 42,
+        alt: this.props.subTitle,
+        src: this.props.avatarUrl
+      })
     }
   }
 }
