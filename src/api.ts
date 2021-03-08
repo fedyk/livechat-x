@@ -106,7 +106,6 @@ namespace app.api {
           this.store.setChats(mergeResults.chatsById)
           this.store.setLicense(license)
           this.store.setMyProfile(myProfile)
-          this.store.resetCannedResponses()
 
           if (routingStatus) {
             this.store.setRoutingStatus(myProfile.id, routingStatus)
@@ -554,7 +553,7 @@ namespace app.api {
 
     syncCannedResponses(groupId: number, signal?: AbortSignal) {
       return this.fetchCannedResponses(groupId, signal).then(cannedResponses => {
-        this.store.setCannedResponses(cannedResponses, groupId)
+        this.store.setCannedResponses(cannedResponses.reverse(), groupId)
       })
     }
   }

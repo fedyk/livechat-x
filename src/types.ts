@@ -318,6 +318,7 @@ namespace app.types {
     id: number
     text: string
     tags: string[]
+    tagsStr: string // #tag1, #tag2
   }
 
   export interface API$Push<A, P = any> {

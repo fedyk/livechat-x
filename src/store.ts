@@ -154,10 +154,6 @@ namespace app.store {
     }
   }
 
-  interface resetCannedResponsesAction {
-    type: "RESET_CANNED_RESPONSES"
-  }
-
   type Actions = setChatsAction |
     setChatAction |
     updateChatAction |
@@ -174,8 +170,7 @@ namespace app.store {
     setCannedResponsesAction |
     addCannedResponseAction |
     updateCannedResponseAction |
-    removeCannedResponseAction |
-    resetCannedResponsesAction
+    removeCannedResponseAction
 
   export const $Store = createInjector<Store>()
 
@@ -191,7 +186,7 @@ namespace app.store {
       selectedChatId: null,
       chatsByIds: {},
       routingStatuses: {},
-      cannedResponses: {}
+      cannedResponses: {},
     }) {
       this.state = initialState
       this.listeners = []
@@ -323,12 +318,6 @@ namespace app.store {
       this.dispatch({
         type: "REMOVE_CANNED_RESPONSE",
         payload: { id, groupId }
-      })
-    }
-
-    resetCannedResponses() {
-      this.dispatch({
-        type: "RESET_CANNED_RESPONSES",
       })
     }
 
@@ -516,7 +505,7 @@ namespace app.store {
             ...state,
             cannedResponses: {
               ...state.cannedResponses,
-              [action.payload.groupId]: cannedResponses.map(function(v) {
+              [action.payload.groupId]: cannedResponses.map(function (v) {
                 if (v.id === action.payload.cannedResponse.id) {
                   return {
                     ...v,
@@ -544,13 +533,6 @@ namespace app.store {
               ...state.cannedResponses,
               [action.payload.groupId]: cannedResponses.filter(v => v.id !== action.payload.id)
             }
-          }
-        }
-
-        case "RESET_CANNED_RESPONSES": {
-          return {
-            ...state,
-            cannedResponses: {}
           }
         }
 

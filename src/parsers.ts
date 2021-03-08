@@ -809,7 +809,8 @@ namespace app.parsers {
     return {
       id: Number(cannedResponse.id),
       text: String(cannedResponse.text).trim(),
-      tags: cannedResponse.tags
+      tags: cannedResponse.tags,
+      tagsStr: cannedResponse.tags.map(tag => `#${tag}`).join(" "),
     }
   }
 

@@ -21,6 +21,7 @@ namespace app.views {
   import getAccountsUrl = app.config.getAccountsUrl
   import $CharRouteManager = app.services.$CharRouteManager
   import $LazyConnect = app.services.$LazyConnect
+  import extractAutocompleteQuery = app.helpers.extractAutocompleteQuery
 
   export class GridView implements helpers.IDisposable {
     el: Element
@@ -788,25 +789,32 @@ namespace app.views {
 
   export class ComposerView implements helpers.IDisposable {
     el: HTMLDivElement
-    actions: Element
     inputContainer: Element
     input: HTMLInputElement
     submit: Element
     buttons: Element
+    chatRoute!: ChatRoute
+    chatGroupId?: number
+    actions: ComposerActions
     listeners: helpers.Listeners
+    autocompleteKey: string
+    autocompleteQuery: string
+    cannedResponses!: {
+      [groupId: number]: types.CannedResponse[]
+    }
 
     constructor(
       protected props: ComposerViewProps,
       protected api = $API(),
-      protected store = $Store(),
       protected charRouteManager = $CharRouteManager(),
+      protected lazyConnect = $LazyConnect(),
     ) {
+      this.autocompleteKey = ""
+      this.autocompleteQuery = ""
+      this.actions = new ComposerActions({ items: [] })
+
       this.el = dom.createEl("div", { className: "composer" }, [
-        this.actions = dom.createEl("div", { className: "composer-actions" }, [
-          // dom.createEl("div", { className: "composer-action active", textContent: "/transfer" }),
-          // dom.createEl("div", { className: "composer-action", textContent: "/close" }),
-          // dom.createEl("div", { className: "composer-action", textContent: "/note" }),
-        ]),
+        this.actions.el,
         this.inputContainer = dom.createEl("div", { className: "composer-input-container" }, [
           this.input = dom.createEl("input", { className: "composer-input", placeholder: "Message", autofocus: true }),
           this.submit = dom.createEl("button", { className: "composer-send" }, [
@@ -818,13 +826,49 @@ namespace app.views {
         ])
       ])
 
-      this.listeners = new helpers.Listeners(
-        dom.addListener(this.input, "keyup", (event) => this.handleKeyUp(event)),
-      )
+      this.listeners = new helpers.Listeners()
+
+      this.listeners.register(dom.addListener(this.input, "keydown", (event) => {
+        this.handleKeyDown(event)
+        this.render()
+      }))
+
+      this.listeners.register(dom.addListener(this.input, "keyup", (event) => {
+        this.handleKeyUp(event)
+        this.render()
+      }))
 
       this.listeners.register(charRouteManager.subscribe(props.chatId, chatRoute => {
-        this.renderChatRouter(chatRoute)
+        this.chatRoute = chatRoute
+        this.render()
       }))
+
+      this.listeners.register(this.actions.addListener("selected", (item) => {
+        if (this.autocompleteKey.length > 0) {
+          this.replaceAutocompleteQuery(item.text)
+          this.render()
+        }
+      }))
+
+      this.listeners.register(lazyConnect.connect(
+        state => {
+          return {
+            cannedResponses: state.cannedResponses,
+            chatGroupId: state.chatsByIds[this.props.chatId]?.groupId
+          }
+        },
+        props => {
+          this.cannedResponses = props.cannedResponses
+          this.chatGroupId = props.chatGroupId
+          this.render()
+        }
+      ))
+
+      this.api.syncCannedResponses(0).catch(err => console.error(err))
+
+      if (this.chatGroupId) {
+        this.api.syncCannedResponses(0).catch(err => console.error(err))
+      }
     }
 
     dispose() {
@@ -832,13 +876,43 @@ namespace app.views {
       this.el.remove()
     }
 
+    protected replaceAutocompleteQuery(text: string) {
+      const start = (this.input.selectionStart ?? 0) - this.autocompleteKey.length - this.autocompleteQuery.length + text.length
+
+      this.input.value = this.input.value.replace(this.autocompleteKey + this.autocompleteQuery, text);
+      this.input.setSelectionRange(start, start)
+      this.autocompleteKey = ""
+      this.autocompleteQuery = ""
+    }
+
+    protected handleKeyDown(event: KeyboardEvent) {
+      if (this.autocompleteKey.length > 0) {
+        this.actions.handleKeyDown(event)
+      }
+
+      if (event.defaultPrevented) {
+        return // Do nothing if event already handled
+      }
+
+      // more should be here
+    }
+
     protected handleKeyUp(event: KeyboardEvent) {
+      const autocomplete = extractAutocompleteQuery(this.input.value, this.input.selectionStart || 0)
+
+      this.autocompleteKey = autocomplete.key
+      this.autocompleteQuery = autocomplete.query
+
+      if (this.autocompleteKey.length > 0) {
+        this.actions.handleKeyUp(event)
+      }
+
       if (event.defaultPrevented) {
         return // Do nothing if event already handled
       }
 
       if (event.code === "Enter") {
-        return this.handleSend()
+        this.handleSend()
       }
     }
 
@@ -856,9 +930,8 @@ namespace app.views {
       this.input.value = ""
     }
 
-    protected renderChatRouter(chatRoute: ChatRoute) {
-      if (chatRoute === "queued" || chatRoute === "unassigned" || chatRoute === "pinned") {
-        dom.toggleEl(this.actions, false)
+    protected render() {
+      if (this.chatRoute === "queued" || this.chatRoute === "unassigned" || this.chatRoute === "pinned") {
         dom.toggleEl(this.inputContainer, false)
         dom.toggleEl(this.buttons, true)
         this.renderActionsButtons([{
@@ -866,20 +939,56 @@ namespace app.views {
           handler: () => this.api.startChat(this.props.chatId)
         }])
       }
-      else if (chatRoute === "closed") {
+      else if (this.chatRoute === "closed") {
+        this.actions.toggle(false)
         console.error(new Error("TODO"))
       }
-      else if (chatRoute === "other") {
+      else if (this.chatRoute === "other") {
         console.error(new Error("TODO"))
       }
-      else if (chatRoute === "supervised") {
+      else if (this.chatRoute === "supervised") {
         console.error(new Error("TODO"))
       }
-      else if (chatRoute === "my") {
-        dom.toggleEl(this.actions, false)
+      else if (this.chatRoute === "my") {
         dom.toggleEl(this.inputContainer, true)
         dom.toggleEl(this.buttons, false)
         this.renderActionsButtons([])
+      }
+
+      this.actions.toggle(this.autocompleteKey.length > 0)
+
+      if (this.autocompleteKey.length > 0) {
+        const groupIds = [0]
+
+        if (this.chatGroupId) {
+          groupIds.push(this.chatGroupId)
+        }
+
+        let items = groupIds
+          .map(groupId => this.cannedResponses[groupId])
+          .reduce<ComposerActionsListItem[]>((prev, curr) => {
+            if (Array.isArray(curr)) {
+              for (let i = 0; i < curr.length; i++) {
+                const cannedResponse = curr[i];
+
+                prev.push({
+                  id: String(cannedResponse.id),
+                  title: cannedResponse.tagsStr,
+                  text: cannedResponse.text,
+                })
+              }
+            }
+
+            return prev
+          }, [])
+
+        if (this.autocompleteQuery.length > 0) {
+          items = items.filter(item => item.title.includes(this.autocompleteQuery));
+        }
+
+        this.actions.setProps({
+          items: items
+        })
       }
     }
 
@@ -912,6 +1021,126 @@ namespace app.views {
       function exit(exitNode: dom.ElementWithDatum<T>) {
         exitNode.onclick = null
         exitNode.remove()
+      }
+    }
+  }
+
+  interface ComposerActionsListItem {
+    id: string
+    title: string
+    text: string
+  }
+
+  interface ComposerActionsProps {
+    items: ComposerActionsListItem[]
+  }
+
+  interface ComposerActionsEvents {
+    selected(item: ComposerActionsListItem): void
+  }
+
+  class ComposerActions extends helpers.TypedEventEmitter<ComposerActionsEvents> implements helpers.IDisposable {
+    el: HTMLDivElement
+    list: HTMLDivElement
+    selectedItem: number
+
+    constructor(protected props: ComposerActionsProps) {
+      super()
+
+      this.el = dom.createEl("div", { className: "composer-actions" }, [
+        this.list = dom.createEl("div", { className: "composer-actions-list" }),
+      ])
+      this.selectedItem = 0
+      this.render()
+    }
+
+    dispose() {
+      this.el.remove()
+    }
+
+    setProps(props: ComposerActionsProps) {
+      if (this.props.items.length !== props.items.length) {
+        this.selectedItem = 0
+      }
+
+      this.props = props
+
+      this.render()
+    }
+
+    handleKeyDown(event: KeyboardEvent) {
+      if (event.code === "ArrowDown") {
+        this.updateSelectedItem(1)
+        this.render()
+        event.preventDefault()
+      }
+
+      if (event.code === "ArrowUp") {
+        this.updateSelectedItem(-1)
+        this.render()
+        event.preventDefault()
+      }
+    }
+
+    handleKeyUp(event: KeyboardEvent) {
+      if (event.code === "Enter") {
+        this.emit("selected", this.props.items[this.selectedItem])
+        event.preventDefault()
+      }
+    }
+
+    toggle(isShown: boolean) {
+      dom.toggleEl(this.el, isShown)
+    }
+
+    protected updateSelectedItem(offset: number) {
+      this.selectedItem += offset
+
+      if (this.selectedItem < 0) {
+        this.selectedItem = this.props.items.length - 1
+      }
+
+      if (this.selectedItem > this.props.items.length - 1) {
+        this.selectedItem = 0
+      }
+    }
+
+    protected render() {
+      const that = this
+
+      dom.selectAll(this.list)
+        .data(this.props.items, d => d?.id)
+        .join(enter, update, exit)
+
+      function enter(node: dom.EnterNode<ComposerActionsListItem>, d: ComposerActionsListItem, i: number) {
+        const classNames = helpers.classNames("composer-action", {
+          active: that.selectedItem === i
+        })
+        const item = dom.createEl("div", { className: classNames }, [
+          dom.createEl("div", { className: "composer-action-title", textContent: d.title }),
+          dom.createEl("div", { className: "composer-action-text", textContent: d.text })
+        ])
+
+        item.onclick = function () {
+          that.emit("selected", d)
+        }
+
+        node.append(item)
+      }
+
+      function update(node: dom.ElementWithDatum<ComposerActionsListItem>, d: ComposerActionsListItem, i: number) {
+        const selected = that.selectedItem === i
+
+        node.classList.toggle("active", selected)
+
+        if (selected) {
+          node.scrollIntoView({ block: "nearest" })
+        }
+      }
+
+      function exit(node: dom.ElementWithDatum<ComposerActionsListItem>) {
+        node.oninput = null
+        node.remove()
       }
     }
   }
@@ -1910,10 +2139,10 @@ namespace app.views {
         },
         force: true
       })
-      .then(() => this.hide())
-      .catch(err => alert(err.message))
+        .then(() => this.hide())
+        .catch(err => alert(err.message))
     }
-    
+
     protected transferToGroup(groupId: number) {
       return this.api.transferChat({
         id: this.props.chatId,
@@ -1923,8 +2152,8 @@ namespace app.views {
         },
         force: true
       })
-      .then(() => this.hide())
-      .catch(err => alert(err.message))
+        .then(() => this.hide())
+        .catch(err => alert(err.message))
     }
 
     protected render() {
