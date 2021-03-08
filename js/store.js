@@ -15,6 +15,7 @@ var app;
                 selectedChatId: null,
                 chatsByIds: {},
                 routingStatuses: {},
+                cannedResponses: {},
             }) {
                 this.state = initialState;
                 this.listeners = [];
@@ -104,6 +105,30 @@ var app;
                     payload: {
                         chatId, threadId, messageId, message
                     }
+                });
+            }
+            setCannedResponses(cannedResponses, groupId) {
+                this.dispatch({
+                    type: "SET_CANNED_RESPONSES",
+                    payload: { cannedResponses, groupId }
+                });
+            }
+            addCannedResponse(cannedResponse, groupId) {
+                this.dispatch({
+                    type: "ADD_CANNED_RESPONSE",
+                    payload: { cannedResponse, groupId }
+                });
+            }
+            updateCannedResponse(cannedResponse, groupId) {
+                this.dispatch({
+                    type: "UPDATE_CANNED_RESPONSE",
+                    payload: { cannedResponse, groupId }
+                });
+            }
+            removeCannedResponse(id, groupId) {
+                this.dispatch({
+                    type: "REMOVE_CANNED_RESPONSE",
+                    payload: { id, groupId }
                 });
             }
             getState() {
@@ -222,6 +247,63 @@ var app;
                         return addMessageReducer(state, action);
                     case "UPDATE_MESSAGE":
                         return updateMessageReducer(state, action);
+                    case "SET_CANNED_RESPONSES":
+                        return {
+                            ...state,
+                            cannedResponses: {
+                                ...state.cannedResponses,
+                                [action.payload.groupId]: action.payload.cannedResponses
+                            }
+                        };
+                    case "ADD_CANNED_RESPONSE": {
+                        const cannedResponses = state.cannedResponses[action.payload.groupId];
+                        if (!cannedResponses) {
+                            return state;
+                        }
+                        return {
+                            ...state,
+                            cannedResponses: {
+                                ...state.cannedResponses,
+                                [action.payload.groupId]: [action.payload.cannedResponse].concat(cannedResponses)
+                            }
+                        };
+                    }
+                    case "UPDATE_CANNED_RESPONSE": {
+                        const cannedResponses = state.cannedResponses[action.payload.groupId];
+                        if (!cannedResponses) {
+                            return state;
+                        }
+                        return {
+                            ...state,
+                            cannedResponses: {
+                                ...state.cannedResponses,
+                                [action.payload.groupId]: cannedResponses.map(function (v) {
+                                    if (v.id === action.payload.cannedResponse.id) {
+                                        return {
+                                            ...v,
+                                            ...action.payload.cannedResponse
+                                        };
+                                    }
+                                    else {
+                                        return v;
+                                    }
+                                })
+                            }
+                        };
+                    }
+                    case "REMOVE_CANNED_RESPONSE": {
+                        const cannedResponses = state.cannedResponses[action.payload.groupId];
+                        if (!cannedResponses) {
+                            return state;
+                        }
+                        return {
+                            ...state,
+                            cannedResponses: {
+                                ...state.cannedResponses,
+                                [action.payload.groupId]: cannedResponses.filter(v => v.id !== action.payload.id)
+                            }
+                        };
+                    }
                     default:
                         return console.warn("Action", action, "is unhandled"), state;
                 }

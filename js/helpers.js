@@ -609,6 +609,50 @@ var app;
             return ((initials.shift()?.[1] || '') + (initials.pop()?.[1] || '')).toUpperCase();
         }
         helpers.getInitials = getInitials;
+        function extractAutocompleteQuery(text, currPos) {
+            let query = "";
+            let key = "";
+            for (let i = currPos - 1; i >= 0; i--) {
+                const char = text[i];
+                // skip ufo cases
+                if (typeof char !== "string") {
+                    break;
+                }
+                if (isWhitespaceCharacter(char)) {
+                    break;
+                }
+                if (char === "#") {
+                    const prevChar = text[i - 1];
+                    // here we can have a "text#text" (hash in the middle of word)
+                    if (typeof prevChar === "string" && !isWhitespaceCharacter(prevChar)) {
+                        break;
+                    }
+                    key = char;
+                    break;
+                }
+                query = char + query;
+            }
+            if (key.length > 0) {
+                for (let i = currPos, count = text.length; i < count; i++) {
+                    const char = text[i];
+                    if (typeof char !== "string") {
+                        break;
+                    }
+                    if (isWhitespaceCharacter(char)) {
+                        break;
+                    }
+                    query += char;
+                }
+            }
+            return {
+                key,
+                query
+            };
+            function isWhitespaceCharacter(char) {
+                return /\s/.test(char);
+            }
+        }
+        helpers.extractAutocompleteQuery = extractAutocompleteQuery;
         function unique(...args) {
             const result = [];
             const seen = new Set();

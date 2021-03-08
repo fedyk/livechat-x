@@ -256,7 +256,8 @@ var app;
                 avatar: "https://cdn.livechatinc.com/cloud/?uri=https%3A%2F%2Flivechat.s3.amazonaws.com%2Fdefault%2Favatars%2F394ad6e3df2320941ab8e0ca147d5221.png",
                 email: demo.agent1.email,
             },
-            license: null
+            license: null,
+            cannedResponses: {}
         };
         function fakeIncomingMessages(store = $Store()) {
             const chatId = demo.chat1.id;

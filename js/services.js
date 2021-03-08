@@ -163,7 +163,7 @@ var app;
                 this.auth = auth;
             }
             performAsync(action, payload, options) {
-                const url = "https://api.livechatinc.com/v3.3/agent/action/send_event" + action;
+                const url = `https://api.livechatinc.com/v3.3/agent/action/${action}`;
                 const accessToken = this.auth.getAccessToken();
                 const region = this.auth.getRegion();
                 const init = {
@@ -171,7 +171,6 @@ var app;
                     body: JSON.stringify(payload),
                     method: "POST",
                     headers: {
-                        Accept: 'application/json',
                         Authorization: `Bearer ${accessToken}`,
                         "Content-Type": "application/json",
                         "X-Region": region
@@ -193,6 +192,82 @@ var app;
             }
         }
         services.WebAPI = WebAPI;
+        class ConfigurationAPI {
+            constructor(auth) {
+                this.auth = auth;
+            }
+            performAsync(action, payload, options) {
+                const url = `https://api.livechatinc.com/v3.3/configuration/action/${encodeURIComponent(action)}`;
+                const accessToken = this.auth.getAccessToken();
+                const region = this.auth.getRegion();
+                const init = {
+                    ...options,
+                    body: JSON.stringify(payload),
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                        "Content-Type": "application/json",
+                        "X-Region": region
+                    },
+                };
+                return fetch(url, init).then((response) => this.parseResponse(response));
+            }
+            parseResponse(response) {
+                if (response.ok === false) {
+                    return response.json().then(function (json) {
+                        const error = json?.error?.message ?? `Server responded with ${response.status} code`;
+                        const errorType = json?.error?.type;
+                        throw new ErrorWithType(error, errorType);
+                    });
+                }
+                else {
+                    return response.json();
+                }
+            }
+        }
+        services.ConfigurationAPI = ConfigurationAPI;
+        class RestAPI {
+            constructor(auth) {
+                this.auth = auth;
+            }
+            performAsync(path, method, body = null, options) {
+                return Promise.resolve(`https://us-central1-canned-response-usage.cloudfunctions.net/proxy/${path}`)
+                    .then((url) => {
+                    const region = this.auth.getRegion();
+                    const accessToken = this.auth.getAccessToken();
+                    const headers = {
+                        "Authorization": `Bearer ${accessToken}`,
+                        "Content-Type": "application/json",
+                        "X-API-Version": "2",
+                        "X-Region": region
+                    };
+                    const init = {
+                        headers,
+                        method,
+                        body: body ? JSON.stringify(body) : null,
+                        ...options
+                    };
+                    return fetch(url, init);
+                })
+                    .then(response => this.parseResponse(response));
+            }
+            parseResponse(response) {
+                if (response.ok === false) {
+                    return response.json().then(function (json) {
+                        const errorType = json?.error?.type;
+                        let message = `Server responded with ${response.status} code`;
+                        if (Array.isArray(json?.errors)) {
+                            message = json?.errors.join(", ");
+                        }
+                        throw new ErrorWithType(message, errorType);
+                    });
+                }
+                else {
+                    return response.json();
+                }
+            }
+        }
+        services.RestAPI = RestAPI;
         class ChatRouter extends TypedEventEmitter {
             constructor() {
                 super();

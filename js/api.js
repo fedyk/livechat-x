@@ -1,10 +1,9 @@
 "use strict";
+/// <reference path="services.ts" />
 var app;
 (function (app) {
-    var services;
-    (function (services) {
-        var WebAPI = app.services.WebAPI;
-        var Listeners = app.helpers.Listeners;
+    var api;
+    (function (api) {
         var TypedEventEmitter = app.helpers.TypedEventEmitter;
         var mergeChats = app.helpers.mergeChats;
         var indexBy = app.helpers.indexBy;
@@ -22,7 +21,7 @@ var app;
         var parseUser = app.parsers.parseUser;
         var parseQueue = app.parsers.parseQueue;
         var getAgentAPIHost = app.config.getAgentAPIHost;
-        services.$API = createInjector();
+        api.$API = createInjector();
         class API extends TypedEventEmitter {
             constructor(auth, store, chatRouter, chatRouteManager) {
                 super();
@@ -58,7 +57,7 @@ var app;
                         if (routingStatus) {
                             this.store.setRoutingStatus(myProfile.id, routingStatus);
                         }
-                        services.Storage.setMyProfile(myProfile);
+                        app.services.Storage.setMyProfile(myProfile);
                     })
                         .catch(err => this.emit("loginError", err));
                 };
@@ -142,8 +141,8 @@ var app;
                             return this.handleIncomingSneakPeek(push);
                         // case "incoming_typing_indicator":
                         //   return this.handle_incoming_typing_indicator(push)
-                        // case "incoming_multicast":
-                        //   return this.handle_incoming_multicast(push)
+                        case "incoming_multicast":
+                            return this.handleIncomingMulticast(push);
                         // case "chat_unfollowed":
                         //   return this.handle_chat_unfollowed(push)
                         case "queue_positions_updated":
@@ -151,12 +150,14 @@ var app;
                     }
                     console.log("unhandled push", push);
                 };
-                this.rtmListeners = new Listeners();
+                this.rtmListeners = new app.helpers.Listeners();
                 this.auth = auth;
                 this.store = store;
                 this.chatRouter = chatRouter;
                 this.chatRouteManager = chatRouteManager;
-                this.web = new WebAPI(auth);
+                this.web = new app.services.WebAPI(auth);
+                this.rest = new app.services.RestAPI(auth);
+                this.configuration = new app.services.ConfigurationAPI(auth);
             }
             dispose() {
                 this.rtm?.close();
@@ -169,7 +170,7 @@ var app;
             connect() {
                 const region = this.auth.getRegion();
                 const url = `wss://${getAgentAPIHost(region)}/v3.3/agent/rtm/ws`;
-                this.rtm = new services.RTM(url);
+                this.rtm = new app.services.RTM(url);
                 this.rtmListeners.unbindAll();
                 this.rtmListeners.register(this.rtm.addListener("open", this.handleOpen), this.rtm.addListener("close", this.handleClose), this.rtm.addListener("error", this.handleError), this.rtm.addListener("push", this.handlePush));
             }
@@ -285,6 +286,18 @@ var app;
                 const sneakPeek = parseSneakPeek(push?.payload?.sneak_peek);
                 this.store.setSneakPeek(chatId, sneakPeek);
             }
+            handleIncomingMulticast(push) {
+                const payload = push.payload;
+                if (payload.type === "lc2" && payload.content.name === "canned_response_add") {
+                    return this.store.addCannedResponse(app.parsers.parseCannedResponse(payload.content.canned_response), payload.content.group);
+                }
+                if (payload.type === "lc2" && payload.content.name === "canned_response_update") {
+                    return this.store.updateCannedResponse(app.parsers.parseCannedResponse(payload.content.canned_response), payload.content.group);
+                }
+                if (payload.type === "lc2" && payload.content.name === "canned_response_remove") {
+                    return this.store.removeCannedResponse(payload.content.canned_response.id, payload.content.group);
+                }
+            }
             handleQueuePositionsUpdated(push) {
                 const payload = Array.isArray(push?.payload) ? push.payload : [];
                 for (let i = 0; i < payload.length; i++) {
@@ -303,7 +316,7 @@ var app;
                     transition.commitChatTransition();
                 }
             }
-            async sendMessage(chatId, text) {
+            async sendMessage(chatId, text, recipients) {
                 const customId = "LiveChatX_" + Math.random().toString(36).substr(2, 9);
                 const state = this.store.getState();
                 const authorId = state.myProfile?.id;
@@ -328,7 +341,7 @@ var app;
                     type: "message",
                     authorId: authorId,
                     createdAt: Date.now(),
-                    recipients: "all",
+                    recipients,
                     postback: {}
                 };
                 const event = {
@@ -336,7 +349,7 @@ var app;
                     custom_id: customId,
                     type: "message",
                     text: text,
-                    recipients: "all",
+                    recipients,
                 };
                 const payload = {
                     chat_id: chatId,
@@ -405,7 +418,27 @@ var app;
                     });
                 }
             }
+            fetchAgents(payload = {}) {
+                return this.configuration.performAsync("list_agents", payload)
+                    .then(agents => app.parsers.parseAgents(agents));
+            }
+            fetchGroups(payload = {}) {
+                return this.configuration.performAsync("list_groups", payload)
+                    .then(groups => app.parsers.parseGroups(groups));
+            }
+            transferChat(payload) {
+                return this.performAsync("transfer_chat", payload);
+            }
+            fetchCannedResponses(groupId, signal) {
+                return this.rest.performAsync(`canned_responses?group=${encodeURIComponent(groupId)}`, "GET", null, { signal })
+                    .then(resp => app.parsers.parseCannedResponses(resp));
+            }
+            syncCannedResponses(groupId, signal) {
+                return this.fetchCannedResponses(groupId, signal).then(cannedResponses => {
+                    this.store.setCannedResponses(cannedResponses.reverse(), groupId);
+                });
+            }
         }
-        services.API = API;
-    })(services = app.services || (app.services = {}));
+        api.API = API;
+    })(api = app.api || (app.api = {}));
 })(app || (app = {}));

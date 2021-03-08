@@ -7,10 +7,11 @@ var app;
         var helpers = app.helpers;
         var $Store = app.store.$Store;
         var ReverseScroll = app.services.ReverseScroll;
-        var $API = app.services.$API;
+        var $API = app.api.$API;
         var getAccountsUrl = app.config.getAccountsUrl;
         var $CharRouteManager = app.services.$CharRouteManager;
         var $LazyConnect = app.services.$LazyConnect;
+        var extractAutocompleteQuery = app.helpers.extractAutocompleteQuery;
         class GridView {
             constructor() {
                 this.el = dom.createEl("div", { className: "grid" }, [
@@ -373,6 +374,8 @@ var app;
         class ChatHeaderView {
             constructor(props, lazyConnect = $LazyConnect()) {
                 this.props = props;
+                let transferToEl;
+                this.listeners = new helpers.Listeners();
                 this.el = dom.createEl("div", { className: "chat-header" }, [
                     this.headerAvatar = dom.createEl("div", { className: "chat-header-avatar" }),
                     dom.createEl("div", { className: "chat-header-details" }, [
@@ -385,19 +388,30 @@ var app;
                                 createIconEl({ name: "caret-down-fill", size: 10 })
                             ]),
                             menuContent: [
-                                dom.createEl("a", { className: "dropdown-item", href: "", textContent: "Transfer to..", onclick: () => alert("todo") }),
-                                dom.createEl("a", { className: "dropdown-item", href: "", textContent: "Archive", onclick: () => alert("todo") }),
+                                transferToEl = dom.createEl("button", {
+                                    className: "dropdown-item",
+                                    textContent: "Transfer to.."
+                                }),
+                                dom.createEl("button", {
+                                    className: "dropdown-item",
+                                    textContent: "Archive",
+                                    onclick: () => alert("todo")
+                                }),
                             ],
                             menuContentAlignRight: true
                         })).el
                     ])
                 ]);
-                this.connectListener = lazyConnect.connect(state => this.mapper(state), props => this.render(props));
+                this.transferToModal = new TransferModalView({
+                    chatId: props.chatId
+                });
+                this.listeners.register(lazyConnect.connect(state => this.mapper(state), props => this.render(props)));
+                this.listeners.register(dom.addListener(transferToEl, "click", () => this.transferToModal.show()));
             }
             dispose() {
                 AvatarView.removeAvatar(this.headerAvatar);
                 this.dropdown.dispose();
-                this.connectListener.unbind();
+                this.listeners.unbindAll();
                 this.el.remove();
             }
             render(props) {
@@ -514,17 +528,16 @@ var app;
         }
         views.ChatBodyView = ChatBodyView;
         class ComposerView {
-            constructor(props, api = $API(), store = $Store(), charRouteManager = $CharRouteManager()) {
+            constructor(props, api = $API(), charRouteManager = $CharRouteManager(), lazyConnect = $LazyConnect()) {
                 this.props = props;
                 this.api = api;
-                this.store = store;
                 this.charRouteManager = charRouteManager;
+                this.lazyConnect = lazyConnect;
+                this.autocompleteKey = "";
+                this.autocompleteQuery = "";
+                this.actions = new ComposerActions({ items: [] });
                 this.el = dom.createEl("div", { className: "composer" }, [
-                    this.actions = dom.createEl("div", { className: "composer-actions" }, [
-                    // dom.createEl("div", { className: "composer-action active", textContent: "/transfer" }),
-                    // dom.createEl("div", { className: "composer-action", textContent: "/close" }),
-                    // dom.createEl("div", { className: "composer-action", textContent: "/note" }),
-                    ]),
+                    this.actions.el,
                     this.inputContainer = dom.createEl("div", { className: "composer-input-container" }, [
                         this.input = dom.createEl("input", { className: "composer-input", placeholder: "Message", autofocus: true }),
                         this.submit = dom.createEl("button", { className: "composer-send" }, [
@@ -535,21 +548,72 @@ var app;
                         dom.createEl("button", { className: "composer-button" }, ["Assign to me"])
                     ])
                 ]);
-                this.listeners = new helpers.Listeners(dom.addListener(this.input, "keyup", (event) => this.handleKeyUp(event)));
-                this.listeners.register(charRouteManager.subscribe(props.chatId, chatRoute => {
-                    this.renderChatRouter(chatRoute);
+                this.listeners = new helpers.Listeners();
+                this.listeners.register(dom.addListener(this.input, "keydown", (event) => {
+                    this.handleKeyDown(event);
+                    this.render();
                 }));
+                this.listeners.register(dom.addListener(this.input, "keyup", (event) => {
+                    this.handleKeyUp(event);
+                    this.render();
+                }));
+                this.listeners.register(charRouteManager.subscribe(props.chatId, chatRoute => {
+                    this.chatRoute = chatRoute;
+                    this.render();
+                }));
+                this.listeners.register(this.actions.addListener("selected", (item) => {
+                    if (this.autocompleteKey.length > 0) {
+                        this.replaceAutocompleteQuery(item.text);
+                        this.render();
+                    }
+                }));
+                this.listeners.register(lazyConnect.connect(state => {
+                    return {
+                        cannedResponses: state.cannedResponses,
+                        chatGroupId: state.chatsByIds[this.props.chatId]?.groupId
+                    };
+                }, props => {
+                    this.cannedResponses = props.cannedResponses;
+                    this.chatGroupId = props.chatGroupId;
+                    this.render();
+                }));
+                this.api.syncCannedResponses(0).catch(err => console.error(err));
+                if (this.chatGroupId) {
+                    this.api.syncCannedResponses(0).catch(err => console.error(err));
+                }
             }
             dispose() {
                 this.listeners.unbindAll();
                 this.el.remove();
             }
+            replaceAutocompleteQuery(text) {
+                const start = (this.input.selectionStart ?? 0) - this.autocompleteKey.length - this.autocompleteQuery.length + text.length;
+                this.input.value = this.input.value.replace(this.autocompleteKey + this.autocompleteQuery, text);
+                this.input.setSelectionRange(start, start);
+                this.autocompleteKey = "";
+                this.autocompleteQuery = "";
+            }
+            handleKeyDown(event) {
+                if (this.autocompleteKey.length > 0) {
+                    this.actions.handleKeyDown(event);
+                }
+                if (event.defaultPrevented) {
+                    return; // Do nothing if event already handled
+                }
+                // more should be here
+            }
             handleKeyUp(event) {
+                const autocomplete = extractAutocompleteQuery(this.input.value, this.input.selectionStart || 0);
+                this.autocompleteKey = autocomplete.key;
+                this.autocompleteQuery = autocomplete.query;
+                if (this.autocompleteKey.length > 0) {
+                    this.actions.handleKeyUp(event);
+                }
                 if (event.defaultPrevented) {
                     return; // Do nothing if event already handled
                 }
                 if (event.code === "Enter") {
-                    return this.handleSend();
+                    this.handleSend();
                 }
             }
             handleSend() {
@@ -557,14 +621,13 @@ var app;
                 if (text.length === 0) {
                     return; // nothing to send
                 }
-                this.api.sendMessage(this.props.chatId, text).catch(err => {
+                this.api.sendMessage(this.props.chatId, text, "all").catch(err => {
                     console.warn(err);
                 });
                 this.input.value = "";
             }
-            renderChatRouter(chatRoute) {
-                if (chatRoute === "queued" || chatRoute === "unassigned" || chatRoute === "pinned") {
-                    dom.toggleEl(this.actions, false);
+            render() {
+                if (this.chatRoute === "queued" || this.chatRoute === "unassigned" || this.chatRoute === "pinned") {
                     dom.toggleEl(this.inputContainer, false);
                     dom.toggleEl(this.buttons, true);
                     this.renderActionsButtons([{
@@ -572,20 +635,48 @@ var app;
                             handler: () => this.api.startChat(this.props.chatId)
                         }]);
                 }
-                else if (chatRoute === "closed") {
+                else if (this.chatRoute === "closed") {
+                    this.actions.toggle(false);
                     console.error(new Error("TODO"));
                 }
-                else if (chatRoute === "other") {
+                else if (this.chatRoute === "other") {
                     console.error(new Error("TODO"));
                 }
-                else if (chatRoute === "supervised") {
+                else if (this.chatRoute === "supervised") {
                     console.error(new Error("TODO"));
                 }
-                else if (chatRoute === "my") {
-                    dom.toggleEl(this.actions, false);
+                else if (this.chatRoute === "my") {
                     dom.toggleEl(this.inputContainer, true);
                     dom.toggleEl(this.buttons, false);
                     this.renderActionsButtons([]);
+                }
+                this.actions.toggle(this.autocompleteKey.length > 0);
+                if (this.autocompleteKey.length > 0) {
+                    const groupIds = [0];
+                    if (this.chatGroupId) {
+                        groupIds.push(this.chatGroupId);
+                    }
+                    let items = groupIds
+                        .map(groupId => this.cannedResponses[groupId])
+                        .reduce((prev, curr) => {
+                        if (Array.isArray(curr)) {
+                            for (let i = 0; i < curr.length; i++) {
+                                const cannedResponse = curr[i];
+                                prev.push({
+                                    id: String(cannedResponse.id),
+                                    title: cannedResponse.tagsStr,
+                                    text: cannedResponse.text,
+                                });
+                            }
+                        }
+                        return prev;
+                    }, []);
+                    if (this.autocompleteQuery.length > 0) {
+                        items = items.filter(item => item.title.includes(this.autocompleteQuery));
+                    }
+                    this.actions.setProps({
+                        items: items
+                    });
                 }
             }
             renderActionsButtons(actions) {
@@ -613,6 +704,87 @@ var app;
             }
         }
         views.ComposerView = ComposerView;
+        class ComposerActions extends helpers.TypedEventEmitter {
+            constructor(props) {
+                super();
+                this.props = props;
+                this.el = dom.createEl("div", { className: "composer-actions" }, [
+                    this.list = dom.createEl("div", { className: "composer-actions-list" }),
+                ]);
+                this.selectedItem = 0;
+                this.render();
+            }
+            dispose() {
+                this.el.remove();
+            }
+            setProps(props) {
+                if (this.props.items.length !== props.items.length) {
+                    this.selectedItem = 0;
+                }
+                this.props = props;
+                this.render();
+            }
+            handleKeyDown(event) {
+                if (event.code === "ArrowDown") {
+                    this.updateSelectedItem(1);
+                    this.render();
+                    event.preventDefault();
+                }
+                if (event.code === "ArrowUp") {
+                    this.updateSelectedItem(-1);
+                    this.render();
+                    event.preventDefault();
+                }
+            }
+            handleKeyUp(event) {
+                if (event.code === "Enter") {
+                    this.emit("selected", this.props.items[this.selectedItem]);
+                    event.preventDefault();
+                }
+            }
+            toggle(isShown) {
+                dom.toggleEl(this.el, isShown);
+            }
+            updateSelectedItem(offset) {
+                this.selectedItem += offset;
+                if (this.selectedItem < 0) {
+                    this.selectedItem = this.props.items.length - 1;
+                }
+                if (this.selectedItem > this.props.items.length - 1) {
+                    this.selectedItem = 0;
+                }
+            }
+            render() {
+                const that = this;
+                dom.selectAll(this.list)
+                    .data(this.props.items, d => d?.id)
+                    .join(enter, update, exit);
+                function enter(node, d, i) {
+                    const classNames = helpers.classNames("composer-action", {
+                        active: that.selectedItem === i
+                    });
+                    const item = dom.createEl("div", { className: classNames }, [
+                        dom.createEl("div", { className: "composer-action-title", textContent: d.title }),
+                        dom.createEl("div", { className: "composer-action-text", textContent: d.text })
+                    ]);
+                    item.onclick = function () {
+                        that.emit("selected", d);
+                    };
+                    node.append(item);
+                }
+                function update(node, d, i) {
+                    const selected = that.selectedItem === i;
+                    node.classList.toggle("active", selected);
+                    if (selected) {
+                        node.scrollIntoView({ block: "nearest" });
+                    }
+                }
+                function exit(node) {
+                    node.oninput = null;
+                    node.remove();
+                }
+            }
+        }
         class MessageView {
             constructor(props) {
                 const isMyMessage = props.message.type !== "system_message" && (props.message.authorId === props.myProfileId);
@@ -975,19 +1147,14 @@ var app;
                 const className = helpers.classNames("avatar", { "avatar-no-img": !props.src });
                 const altText = helpers.getInitials(props.alt);
                 this.el = dom.createEl("div", { className: className }, [
-                    props.src ? (this.img = dom.createEl("img", {
-                        className: "avatar-img",
-                        src: props.src,
-                        height: props.size,
-                        width: props.size,
-                    })) : "",
+                    props.src ? (this.img = dom.createEl("img", { className: "avatar-img", src: props.src })) : "",
                     this.alt = dom.createEl("div", { className: "avatar-alt", textContent: altText })
                 ]);
                 this.el.style.width = `${props.size}px`;
                 this.el.style.height = `${props.size}px`;
                 this.alt.style.lineHeight = `${props.size}px`;
                 if (this.img) {
-                    this.imgListener = dom.addListener(this.img, "error", this.handleImgError);
+                    this.imgListener = dom.addListener(this.img, "error", () => this.handleImgError());
                 }
             }
             static renderAvatar(container, props) {
@@ -1165,7 +1332,6 @@ var app;
                 this.listeners = new helpers.Listeners(dom.addListener(this.el, "mouseenter", () => this.handleMouseEnter()), dom.addListener(this.el, "mouseleave", () => this.handleMouseLeave()));
             }
             dispose() {
-                debugger;
                 clearTimeout(this.timerId);
                 this.listeners.unbindAll();
                 this.el.remove();
@@ -1182,5 +1348,244 @@ var app;
                 }, 200);
             }
         }
+        class SearchControlView extends helpers.TypedEventEmitter {
+            constructor(props) {
+                super();
+                this.el = dom.createEl("div", { className: "search" }, [
+                    dom.createEl("label", { className: "search-label", htmlFor: "search", }, [
+                        createIconEl({ name: "search", size: 12 })
+                    ]),
+                    this.input = dom.createEl("input", {
+                        id: "search",
+                        type: "text",
+                        placeholder: props.placeholder ?? "Search",
+                        className: "search-input",
+                        autocomplete: "off",
+                    })
+                ]);
+                this.input.oninput = () => this.handleInput();
+            }
+            dispose() {
+                this.input.oninput = null;
+                this.el.remove();
+            }
+            handleInput() {
+                this.emit("onChange", this.input.value);
+            }
+        }
+        views.SearchControlView = SearchControlView;
+        class ModalView {
+            constructor() {
+                this.isShown = false;
+                this.el = dom.createEl("div", { className: "modal", tabIndex: -1 }, [
+                    this.dialog = dom.createEl("div", { className: "modal-dialog" }, [
+                        this.content = dom.createEl("div", { className: "modal-content" })
+                    ])
+                ]);
+                this.backdrop = dom.createEl("div", { className: "modal-backdrop" });
+                document.body.append(this.backdrop, this.el);
+            }
+            dispose() {
+                this.el.onkeydown = null;
+                this.el.onclick = null;
+                this.el.remove();
+                this.backdrop.remove();
+            }
+            show() {
+                if (this.isShown) {
+                    return;
+                }
+                this.isShown = true;
+                this.el.classList.add("show");
+                this.backdrop.classList.add("show");
+                this.el.onkeydown = event => {
+                    if (event.code === "Escape") {
+                        this.hide();
+                    }
+                };
+                this.el.onclick = event => {
+                    if (event.target !== event.currentTarget) {
+                        return;
+                    }
+                    this.hide();
+                };
+            }
+            hide() {
+                if (!this.isShown) {
+                    return;
+                }
+                this.isShown = false;
+                this.el.classList.remove("show");
+                this.backdrop.classList.remove("show");
+                this.el.onkeydown = null;
+                this.el.onclick = null;
+            }
+        }
+        views.ModalView = ModalView;
+        class TransferModalView extends ModalView {
+            constructor(props, api = $API()) {
+                super();
+                this.props = props;
+                this.api = api;
+                this.content.append((this.search = new SearchControlView({ placeholder: "Search" })).el, this.body = dom.createEl("div", {}, [
+                    this.loaderEl = dom.createEl("div", { className: "p-5 text-center", textContent: "Loading.." }),
+                    this.list = dom.createEl("div", { className: "list-group" }),
+                ]), this.footer = dom.createEl("div", { className: "" }, [
+                    this.input = dom.createEl("input", { className: "form-control", placeholder: "Add a comment..." })
+                ]));
+                this.listAvatars = new WeakMap();
+                this.abort = new AbortController();
+                this.isFetching = true;
+                this.agents = [];
+                this.groups = [];
+                this.filterQuery = "";
+                this.input.oninput = () => {
+                    this.filterQuery = this.input.value;
+                    this.render();
+                };
+                this.render();
+            }
+            dispose() {
+                this.abort.abort();
+            }
+            show() {
+                super.show();
+                this.input.value = "";
+                this.filterQuery = "";
+                this.input.focus();
+                this.syncData();
+            }
+            syncData() {
+                this.isFetching = true;
+                this.render();
+                const promise = this.api.fetchAgents()
+                    .then(agents => this.agents = agents);
+                const promise2 = this.api.fetchGroups({ fields: ["routing_status"] })
+                    .then(groups => this.groups = groups);
+                return Promise.all([promise, promise2])
+                    .catch(err => console.error(err))
+                    .finally(() => {
+                    this.isFetching = false;
+                    this.render();
+                });
+            }
+            getFilteredData() {
+                const agents = this.filterQuery.length === 0
+                    ? this.agents
+                    : this.agents.filter(a => a.name.localeCompare(this.filterQuery));
+                const groups = this.filterQuery.length === 0
+                    ? this.groups
+                    : this.groups.filter(g => g.name.localeCompare(this.filterQuery));
+                const data = agents.map(a => ({
+                    id: a.id,
+                    title: a.name,
+                    subTitle: a.jobTitle,
+                    avatarUrl: a.avatarUrl,
+                    onClick: () => this.transferToAgent(a.id)
+                }));
+                return data.concat(groups.map(g => ({
+                    id: g.id.toString(),
+                    title: g.name,
+                    subTitle: g.routingStatus,
+                    avatarUrl: "",
+                    onClick: () => this.transferToGroup(g.id)
+                })));
+            }
+            transferToAgent(agentId) {
+                return this.api.transferChat({
+                    id: this.props.chatId,
+                    target: {
+                        type: "agent",
+                        ids: [agentId]
+                    },
+                    force: true
+                })
+                    .then(() => this.hide())
+                    .catch(err => alert(err.message));
+            }
+            transferToGroup(groupId) {
+                return this.api.transferChat({
+                    id: this.props.chatId,
+                    target: {
+                        type: "group",
+                        ids: [groupId]
+                    },
+                    force: true
+                })
+                    .then(() => this.hide())
+                    .catch(err => alert(err.message));
+            }
+            render() {
+                const data = this.getFilteredData();
+                dom.toggleEl(this.loaderEl, this.isFetching);
+                dom.toggleEl(this.list, !this.isFetching);
+                dom.selectAll(this.list)
+                    .data(data, d => d?.id)
+                    .join((enter, d) => enter.append(TransferModalListItem.enter(d)), (update, d) => TransferModalListItem.update(update, d), exit => TransferModalListItem.exit(exit));
+            }
+        }
+        views.TransferModalView = TransferModalView;
+        class TransferModalListItem {
+            constructor(props) {
+                this.props = props;
+                this.el = dom.createEl("button", { className: "list-group-item list-group-item-action", type: "button" }, [
+                    dom.createEl("div", { className: "d-flex align-items-center" }, [
+                        this.avatarContainer = dom.createEl("div", { className: "pr-2" }),
+                        dom.createEl("div", {}, [
+                            this.title = dom.createEl("div", { className: "text-primary", innerText: props.title }),
+                            this.sutTitle = dom.createEl("div", { className: "text-secondary", innerText: props.subTitle }),
+                        ])
+                    ])
+                ]);
+                this.clickListener = dom.addListener(this.el, "click", () => this.handleClick());
+                AvatarView.renderAvatar(this.avatarContainer, {
+                    size: 42,
+                    alt: props.subTitle,
+                    src: props.avatarUrl
+                });
+            }
+            static enter(props) {
+                const listGroupItem = new TransferModalListItem(props);
+                TransferModalListItem.instances.set(listGroupItem.el, listGroupItem);
+                return listGroupItem.el;
+            }
+            static update(el, props) {
+                const listGroupItem = TransferModalListItem.instances.get(el);
+                if (listGroupItem) {
+                    listGroupItem.setProps(props);
+                }
+            }
+            static exit(el) {
+                const listGroupItem = TransferModalListItem.instances.get(el);
+                if (listGroupItem) {
+                    listGroupItem.dispose();
+                }
+            }
+            dispose() {
+                AvatarView.removeAvatar(this.avatarContainer);
+                this.clickListener.unbind();
+                this.el.remove();
+            }
+            setProps(props) {
+                this.props = props;
+                this.render();
+            }
+            handleClick() {
+                if (typeof this.props.onClick === "function") {
+                    this.props.onClick();
+                }
+            }
+            render() {
+                this.title.textContent = this.props.title;
+                this.sutTitle.textContent = this.props.subTitle;
+                AvatarView.renderAvatar(this.avatarContainer, {
+                    size: 42,
+                    alt: this.props.subTitle,
+                    src: this.props.avatarUrl
+                });
+            }
+        }
+        // static
+        TransferModalListItem.instances = new WeakMap();
     })(views = app.views || (app.views = {}));
 })(app || (app = {}));

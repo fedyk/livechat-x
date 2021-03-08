@@ -459,14 +459,20 @@ var app;
             if (routingStatus === "offline") {
                 return "offline";
             }
-            return console.warn("Unsupported routing status: " + routingStatus);
+            if (routingStatus === "online") {
+                return "accepting_chats";
+            }
+            throw new RangeError("Unsupported routing status: " + routingStatus);
         }
         parsers.parseRoutingStatus = parseRoutingStatus;
         function parseAvatarUrl(avatarUrl) {
             if (!avatarUrl) {
-                return;
+                return "";
             }
-            return avatarUrl;
+            if (avatarUrl.startsWith("http")) {
+                return avatarUrl;
+            }
+            return `https://${avatarUrl}`;
         }
         parsers.parseAvatarUrl = parseAvatarUrl;
         function parseGeolocation(geolocation) {
@@ -659,6 +665,27 @@ var app;
             };
         }
         parsers.parseQueue = parseQueue;
+        function parseCannedResponses(cannedResponses) {
+            if (!Array.isArray(cannedResponses)) {
+                throw new RangeError("`canned_responses` should be an array");
+            }
+            return cannedResponses.map(function (cannedResponse) {
+                return parseCannedResponse(cannedResponse);
+            });
+        }
+        parsers.parseCannedResponses = parseCannedResponses;
+        function parseCannedResponse(cannedResponse) {
+            if (!Array.isArray(cannedResponse.tags)) {
+                throw new RangeError("tags should be an array of string");
+            }
+            return {
+                id: Number(cannedResponse.id),
+                text: String(cannedResponse.text).trim(),
+                tags: cannedResponse.tags,
+                tagsStr: cannedResponse.tags.map(tag => `#${tag}`).join(" "),
+            };
+        }
+        parsers.parseCannedResponse = parseCannedResponse;
         function parseScopes(scopes) {
             if (!Array.isArray(scopes)) {
                 return [];
@@ -666,5 +693,36 @@ var app;
             return scopes.map(scope => String(scope));
         }
         parsers.parseScopes = parseScopes;
+        function parseAgents(agents) {
+            if (!Array.isArray(agents)) {
+                throw new RangeError("`agents` should be an list");
+            }
+            return agents.map(agent => parseAgent(agent));
+        }
+        parsers.parseAgents = parseAgents;
+        function parseAgent(agent) {
+            return {
+                id: String(agent.id),
+                name: String(agent.name ?? ""),
+                jobTitle: String(agent.job_title ?? ""),
+                avatarUrl: parseAvatarUrl(agent.avatar_path ?? ""),
+            };
+        }
+        parsers.parseAgent = parseAgent;
+        function parseGroups(groups) {
+            if (!Array.isArray(groups)) {
+                throw new RangeError("`agents` should be an list");
+            }
+            return groups.map(group => parseGroup(group));
+        }
+        parsers.parseGroups = parseGroups;
+        function parseGroup(group) {
+            return {
+                id: Number(group.id),
+                name: String(group.name ?? ""),
+                routingStatus: parseRoutingStatus(group.routing_status)
+            };
+        }
+        parsers.parseGroup = parseGroup;
     })(parsers = app.parsers || (app.parsers = {}));
 })(app || (app = {}));
