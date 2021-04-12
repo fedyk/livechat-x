@@ -6,6 +6,7 @@ namespace app.services {
   import TypedEventEmitter = app.helpers.TypedEventEmitter
   import AbortError = app.helpers.AbortError
   import ErrorWithType = app.helpers.ErrorWithType
+  import IListener = app.helpers.IListener
   import Listeners = app.helpers.Listeners
   import parseScopes = app.parsers.parseScopes
 
@@ -258,7 +259,7 @@ namespace app.services {
       }
     }
   }
-  
+
   export class ConfigurationAPI {
     auth: Auth;
 
@@ -535,6 +536,23 @@ namespace app.services {
 
     export function setMyProfile(myProfile: MyProfile) {
       return setItem("my_profile", myProfile)
+    }
+  }
+
+  export class TextAreaAutoResize implements IDisposable {
+    listener: IListener;
+
+    constructor(protected input: HTMLTextAreaElement) {
+      this.listener = dom.addListener(input, "input", () => this.resize())
+    }
+
+    dispose() {
+      this.listener.unbind()
+    }
+
+    resize() {
+      this.input.style.height = "auto";
+      this.input.style.height = this.input.scrollHeight + "px";
     }
   }
 }

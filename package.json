@@ -4,7 +4,7 @@
   "description": "Unofficial agent client for LiveChat",
   "main": "index.js",
   "scripts": {
-    "dev": "./scripts/dev.js",
+    "watch": "tsc --watch --preserveWatchOutput",
     "release": "scripts/release.js",
     "version": "scripts/sync-version.js",
     "postversion": "git push && git push --tags"

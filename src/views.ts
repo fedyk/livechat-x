@@ -21,6 +21,7 @@ namespace app.views {
   import getAccountsUrl = app.config.getAccountsUrl
   import $CharRouteManager = app.services.$CharRouteManager
   import $LazyConnect = app.services.$LazyConnect
+  import TextAreaAutoResize = app.services.TextAreaAutoResize
   import extractAutocompleteQuery = app.helpers.extractAutocompleteQuery
 
   export class GridView implements helpers.IDisposable {
@@ -790,13 +791,14 @@ namespace app.views {
   export class ComposerView implements helpers.IDisposable {
     el: HTMLDivElement
     inputContainer: Element
-    input: HTMLInputElement
-    submit: Element
+    input: HTMLTextAreaElement
+    sendButton: Element
     buttons: Element
     chatRoute!: ChatRoute
     chatGroupId?: number
     actions: ComposerActions
     listeners: helpers.Listeners
+    textAreaAutoResize: TextAreaAutoResize
     autocompleteKey: string
     autocompleteQuery: string
     cannedResponses!: {
@@ -815,9 +817,11 @@ namespace app.views {
 
       this.el = dom.createEl("div", { className: "composer" }, [
         this.actions.el,
-        this.inputContainer = dom.createEl("div", { className: "composer-input-container" }, [
-          this.input = dom.createEl("input", { className: "composer-input", placeholder: "Message", autofocus: true }),
-          this.submit = dom.createEl("button", { className: "composer-send" }, [
+        this.inputContainer = dom.createEl("div", { className: "composer-container" }, [
+          dom.createEl("div", {className: "composer-input-container"}, [
+            this.input = dom.createEl("textarea", { className: "composer-input", placeholder: "Message", rows: 1 }),
+          ]),
+          this.sendButton = dom.createEl("button", { className: "composer-send" }, [
             createIconEl({ name: "arrow-right-circle", size: "1.5em" })
           ])
         ]),
@@ -826,6 +830,7 @@ namespace app.views {
         ])
       ])
 
+      this.textAreaAutoResize = new TextAreaAutoResize(this.input)
       this.listeners = new helpers.Listeners()
 
       this.listeners.register(dom.addListener(this.input, "keydown", (event) => {
@@ -836,6 +841,10 @@ namespace app.views {
       this.listeners.register(dom.addListener(this.input, "keyup", (event) => {
         this.handleKeyUp(event)
         this.render()
+      }))
+
+      this.listeners.register(dom.addListener(this.sendButton, "click", (event) => {
+        this.handleSend()
       }))
 
       this.listeners.register(charRouteManager.subscribe(props.chatId, chatRoute => {
@@ -894,7 +903,11 @@ namespace app.views {
         return // Do nothing if event already handled
       }
 
-      // more should be here
+      if (event.key === "Enter" && event.shiftKey === false) {
+        event.preventDefault()
+        this.handleSend()
+        return
+      }
     }
 
     protected handleKeyUp(event: KeyboardEvent) {
@@ -910,10 +923,6 @@ namespace app.views {
       if (event.defaultPrevented) {
         return // Do nothing if event already handled
       }
-
-      if (event.code === "Enter") {
-        this.handleSend()
-      }
     }
 
     protected handleSend() {
@@ -928,6 +937,7 @@ namespace app.views {
       })
 
       this.input.value = ""
+      this.textAreaAutoResize.resize()
     }
 
     protected render() {
