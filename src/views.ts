@@ -792,7 +792,7 @@ namespace app.views {
     el: HTMLDivElement
     inputContainer: Element
     input: HTMLTextAreaElement
-    submit: Element
+    sendButton: Element
     buttons: Element
     chatRoute!: ChatRoute
     chatGroupId?: number
@@ -821,7 +821,7 @@ namespace app.views {
           dom.createEl("div", {className: "composer-input-container"}, [
             this.input = dom.createEl("textarea", { className: "composer-input", placeholder: "Message", rows: 1 }),
           ]),
-          this.submit = dom.createEl("button", { className: "composer-send" }, [
+          this.sendButton = dom.createEl("button", { className: "composer-send" }, [
             createIconEl({ name: "arrow-right-circle", size: "1.5em" })
           ])
         ]),
@@ -841,6 +841,10 @@ namespace app.views {
       this.listeners.register(dom.addListener(this.input, "keyup", (event) => {
         this.handleKeyUp(event)
         this.render()
+      }))
+
+      this.listeners.register(dom.addListener(this.sendButton, "click", (event) => {
+        this.handleSend()
       }))
 
       this.listeners.register(charRouteManager.subscribe(props.chatId, chatRoute => {
