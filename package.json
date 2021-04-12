@@ -1,6 +1,6 @@
 {
   "name": "livechat-x",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Unofficial agent client for LiveChat",
   "main": "index.js",
   "scripts": {
