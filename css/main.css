@@ -546,9 +546,7 @@ button.dropdown-item {
 }
 
 .composer-input-container {
-  /* height: 0; */
   flex: 1;
-  padding: 0;
 }
 
 .composer-input {
@@ -557,15 +555,14 @@ button.dropdown-item {
   width: 100%;
   padding: 11px 48px 13px 14px;
   margin: 0;
-  outline: none;
   border: none;
+  resize: none;
+  outline: none;
   background: none;
   color: var(--main-text-color);
   font-family: inherit;
   font-size: inherit;
   line-height: inherit;
-  resize: none;
-  /* overflow-y: hidden; */
 }
 
 .composer-input:focus {
@@ -577,11 +574,11 @@ button.dropdown-item {
   position: absolute;
   right: 0;
   bottom: 0;
-  border: none;
   height: 48px;
   width: 48px;
-  background: none;
   padding: 0;
+  border: none;
+  background: none;
   color: var(--second-text-color);
   transition: color 0.1s linear;
   cursor: pointer;
