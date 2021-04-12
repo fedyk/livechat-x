@@ -536,42 +536,54 @@ button.dropdown-item {
 .composer {
   position: relative;
   border-top: 1px solid var(--border-color);
-  /* background-color: var(--active-bg-color); */
-  flex: 0 0 48px;
+  flex: 0 1 48px;
+  flex-basis: inherit;
+  flex-basis: auto;
+}
+
+.composer-container {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
 }
 
 .composer-input-container {
-  position: relative;
-  height: 100%;
+  /* height: 0; */
+  flex: 1;
+  padding: 0;
 }
 
-input.composer-input {
+.composer-input {
+  position: relative;
   display: block;
   width: 100%;
-  height: 100%;
-  padding: 1px 14px 0;
+  padding: 15px 48px 15px 14px;
+  margin: 0;
+  outline: none;
   border: none;
   background: none;
-  font-size: 1rem;
-  line-height: 0;
   color: var(--main-text-color);
-  transition: background-color 0.1s linear;
+  font-family: inherit;
+  font-size: inherit;
+  resize: none;
+  /* overflow-y: hidden; */
 }
 
-input.composer-input:focus {
+.composer-input:focus {
   border: none;
   outline: none;
 }
 
-button.composer-send {
+.composer-send {
   position: absolute;
   right: 0;
-  top: 0;
   bottom: 0;
   border: none;
+  height: 48px;
+  width: 48px;
   background: none;
-  padding: 0 14px;
-  line-height: 1.5;
+  padding: 0;
   color: var(--second-text-color);
   transition: color 0.1s linear;
   cursor: pointer;
